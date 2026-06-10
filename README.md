@@ -5,10 +5,16 @@ Backend server for Waylo - an AI-powered Android app that helps elderly users na
 ## Features
 
 - **Multilingual Support**: Detects and responds in 10 Indian languages + English
-- **AI-Powered Instructions**: Uses Google Gemini 1.5 Flash to generate step-by-step guides
+- **AI-Powered Instructions**: Uses Google Gemini 2.5 Flash to generate step-by-step guides
+- **App Package Resolution**: Each step is enriched with the target app's Android `appPackage`
+  so the on-device element finder prefers the real app over look-alikes
+- **Vision Fallback** (`POST /vision`): Gemini Vision locates missing elements on a screenshot
+  (`locate`) or generates recovery steps when the screen looks wrong (`troubleshoot`)
 - **Persistent Guides**: Saves guides to Supabase with 30-day expiry
 - **Rate Limiting**: Protects the /plan endpoint from abuse
 - **CORS Enabled**: Ready for cross-origin requests
+
+Set `WAYLO_DEBUG=1` to log full vision prompts and raw Gemini responses.
 
 ## Supported Languages
 
@@ -113,12 +119,38 @@ Generate step-by-step instructions for a task.
       "instruction": "व्हाट्सएप खोलें",
       "findDescription": "WhatsApp icon",
       "appName": "WhatsApp",
-      "expectedScreenTitle": "WhatsApp"
+      "expectedScreenTitle": "WhatsApp",
+      "appPackage": "com.whatsapp"
     }
   ],
   "totalSteps": 5
 }
 ```
+
+### POST /vision
+
+Layer 3 fallback. Sends a Base64 JPEG screenshot to Gemini Vision.
+
+**Request:**
+```json
+{
+  "mode": "locate | troubleshoot",
+  "screenshotBase64": "<base64 jpeg>",
+  "task": "open youtube history",
+  "currentStepIndex": 2,
+  "totalSteps": 4,
+  "findDescription": "History tab in YouTube library",
+  "screenWidth": 1080,
+  "screenHeight": 2400,
+  "language": "en"
+}
+```
+
+**Response (`locate`):** `{ "found", "x", "y", "confidence", "whatYouSee", "updatedFindDescription" }`
+
+**Response (`troubleshoot`):** `{ "recoverable", "rootCause", "explanation", "newSteps": [...] }`
+
+Gemini calls have a 60s timeout; a 429 from Gemini is retried once after 5s.
 
 ### POST /guide
 
@@ -166,13 +198,30 @@ Retrieve a saved guide by ID.
 ```
 waylo-backend/
 ├── index.js          # Main Express server
-├── gemini.js         # Gemini API integration with multilingual prompts
+├── gemini.js         # Gemini API integration with multilingual prompts + appPackage enrichment
+├── routes/
+│   └── vision.js     # POST /vision — Gemini Vision locate + troubleshoot
 ├── supabase.js       # Supabase database client
 ├── langdetect.js     # Language detection utility
 ├── package.json      # Dependencies and scripts
 ├── .env.example      # Environment variables template
 └── README.md         # This file
 ```
+
+## Android Element-Finding Pipeline (frontend_systemsettings_overlay)
+
+The app finds each step's target element through layered search, fastest first:
+
+| Layer | What | Where | Budget |
+|---|---|---|---|
+| 0 | Accessibility tree scoring (threshold 70, `appPackage` bonus +60, cached tree) | `ElementFinder.kt` | 300ms (+1 retry after 500ms) |
+| 1 | ML Kit text recognition, Latin + Devanagari, on a downscaled screenshot | `MLKitFinder.kt` | 800ms |
+| 2 | Icon recognition: colour signature → ML Kit labeling → TFLite classifier | `icon/IconFinder.kt` | 600ms |
+| 3a | Gemini Vision `locate` via backend | `GeminiVisionClient.kt` | 15s |
+| 3b | Gemini Vision `troubleshoot` → recovery steps spliced into the plan | `GeminiVisionClient.kt` | 20s |
+
+Layer 2 Part C needs `app/src/main/assets/icon_classifier.tflite` (bundled; any
+224×224 float32 ImageNet classifier works) — it degrades gracefully if absent.
 
 ## Deployment
 

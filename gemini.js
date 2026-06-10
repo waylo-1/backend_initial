@@ -216,6 +216,39 @@ Important rules:
 
 
 /**
+ * Known Android packages for common apps. Steps are enriched with an
+ * `appPackage` field server-side (deterministic — more reliable than asking
+ * the model for package names in 10 languages). The Android ElementFinder
+ * uses it to strongly prefer the real app's nodes over look-alikes.
+ */
+const KNOWN_PACKAGES = {
+  'youtube': 'com.google.android.youtube',
+  'whatsapp': 'com.whatsapp',
+  'phonepe': 'com.phonepe.app',
+  'play store': 'com.android.vending',
+  'playstore': 'com.android.vending',
+  'chrome': 'com.android.chrome',
+  'maps': 'com.google.android.apps.maps',
+  'instagram': 'com.instagram.android',
+  'settings': 'com.android.settings',
+  'gmail': 'com.google.android.gm',
+  'irctc': 'cris.org.in.prs.ima',
+  'paytm': 'net.one97.paytm',
+  'facebook': 'com.facebook.katana',
+  'telegram': 'org.telegram.messenger',
+};
+
+/** Resolve an app name (or any text mentioning one) to a known package. */
+function resolveAppPackage(text) {
+  if (!text) return null;
+  const haystack = String(text).toLowerCase();
+  for (const [keyword, pkg] of Object.entries(KNOWN_PACKAGES)) {
+    if (haystack.includes(keyword)) return pkg;
+  }
+  return null;
+}
+
+/**
  * Generates step-by-step instructions using Gemini AI
  * @param {string} task - The user's task description
  * @param {string} languageCode - Detected language code
@@ -256,9 +289,20 @@ async function generateSteps(task, languageCode) {
   const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
   const steps = JSON.parse(cleaned);
 
+  // Enrich each step with the target app's package name. Try the step's own
+  // appName / findDescription first, then fall back to the overall task.
+  const taskPackage = resolveAppPackage(task);
+  for (const step of steps) {
+    step.appPackage =
+      resolveAppPackage(step.appName) ||
+      resolveAppPackage(step.findDescription) ||
+      taskPackage ||
+      null;
+  }
+
   console.log(`Gemini response received, ${steps.length} steps parsed`);
 
   return steps;
 }
 
-module.exports = { getSystemPrompt, generateSteps };
+module.exports = { getSystemPrompt, generateSteps, resolveAppPackage };

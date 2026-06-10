@@ -1,4 +1,4 @@
-// backend_initial/routes/vision.js
+// routes/vision.js
 // POST /vision — Gemini Vision for element location and troubleshooting.
 //
 // Two modes:
@@ -7,84 +7,125 @@
 //
 // Uses the Gemini REST API via node-fetch (same approach as gemini.js), so no
 // extra npm dependency is required. The Gemini key stays server-side.
+//
+// Set WAYLO_DEBUG=1 to log full prompts and raw Gemini responses.
 
 const express = require('express');
 const router = express.Router();
 
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
+const DEBUG = process.env.WAYLO_DEBUG === '1';
+const GEMINI_TIMEOUT_MS = 60000; // vision calls on Gemini Flash can be slow
+
 // ── Prompts ─────────────────────────────────────────────────────────────────
-const LOCATE_PROMPT = (task, stepIndex, totalSteps, findDescription) => `
-You are helping an Android guidance app find a UI element on screen.
+const LOCATE_PROMPT = (task, stepIndex, totalSteps, findDescription, width, height) => `
+You are helping an elderly user tap the correct element on their Android phone screen.
 
 Task: "${task}"
-Step: ${stepIndex + 1} of ${totalSteps}
-Expected element: "${findDescription}"
+We are on step ${stepIndex + 1} of ${totalSteps}.
+We are looking for: "${findDescription}"
 
-Look at the screenshot carefully.
+Look at this screenshot carefully.
 
-If you can find the element (or something close enough to tap):
-- Set "found": true
-- Give the pixel coordinates (x, y) of the CENTER of the element
-- The image dimensions match the phone screen. Top-left is (0,0).
-- If the element label was slightly wrong, give an updated description
+If you can see the element (even if named slightly differently): return its center pixel coordinates.
+The phone screen resolution is ${width}x${height}. Top-left is (0,0).
+If you genuinely cannot see it anywhere: set found=false.
 
-If the element is genuinely NOT on screen (e.g. History tab requires sign-in,
-tab doesn't exist):
-- Set "found": false
-- Explain briefly why
-
-Return ONLY valid JSON, no markdown, no text outside the JSON:
+Return ONLY this JSON, nothing else:
 {
-  "found": true or false,
-  "x": <center x pixel if found>,
-  "y": <center y pixel if found>,
-  "updatedFindDescription": "<corrected element description>",
-  "instruction": "<brief instruction update if needed, else empty string>",
-  "reasoning": "<one line why>"
+  "found": true/false,
+  "x": <pixel x of element center>,
+  "y": <pixel y of element center>,
+  "confidence": 0.0-1.0,
+  "whatYouSee": "<one line description of what's at that location>",
+  "updatedFindDescription": "<corrected description if element name was wrong>"
 }
 `.trim();
 
-const TROUBLESHOOT_PROMPT = (task, stepIndex, totalSteps, findDescription, language) => `
-You are helping an elderly user complete a task on their Android phone.
-The guidance app got stuck because an expected element was not found.
+const TROUBLESHOOT_PROMPT = (task, stepIndex, totalSteps, findDescription, language, width, height) => `
+You are helping an elderly Indian user complete a task on their Android phone.
+The guidance app got stuck because an expected element is missing from the screen.
 
-Task the user wants to complete: "${task}"
-Step we got stuck on: ${stepIndex + 1} of ${totalSteps}
-Element we were looking for: "${findDescription}"
-Instruction language: ${language}
+Original task: "${task}"
+Stuck on step ${stepIndex + 1} of ${totalSteps}: looking for "${findDescription}"
+Screen resolution: ${width}x${height}
 
-Look at the current screenshot.
-Figure out WHY the element is missing and what the user needs to do differently.
+Analyze the screenshot and figure out:
+1. WHY is the element missing? (signed out, wrong screen, feature needs subscription, UI changed, etc.)
+2. What should the user do to get back on track?
 
-Common reasons:
-- User needs to sign in first
-- User is on the wrong screen/app
-- The UI has changed (element has a different name or location)
-- The app needs a different flow to reach the goal
+Generate clear, simple recovery steps. Instructions must be short and warm —
+this user is elderly and not tech-savvy.
+Write the "instruction" fields in ${language === 'hi' ? 'Hindi' : 'simple English'}.
+The "findDescription" fields must always be in English.
 
-Generate recovery steps that get the user back on track to complete their
-original task. Use simple, warm language an elderly person can follow.
-Instructions in: ${language === 'hi' ? 'Hindi' : 'English'}
-
-Return ONLY valid JSON, no markdown:
+Return ONLY this JSON:
 {
-  "recoverable": true or false,
-  "explanation": "<one sentence spoken aloud explaining what happened>",
+  "recoverable": true/false,
+  "rootCause": "<one line: why the element is missing>",
+  "explanation": "<spoken aloud to user, 1 sentence, simple language>",
   "newSteps": [
     {
       "stepNumber": 1,
-      "instruction": "<spoken instruction for user>",
-      "findDescription": "<English description of UI element to find>"
+      "instruction": "<what to do, simple language>",
+      "findDescription": "<English description of UI element to tap>"
     }
   ]
 }
 
-If not recoverable (feature truly doesn't exist, needs paid subscription, etc.):
-set "recoverable": false, "newSteps": [], and explain in "explanation".
+If not recoverable (feature doesn't exist, needs paid plan, etc.):
+set recoverable=false, newSteps=[], and explain clearly in "explanation".
 `.trim();
 
-// ── Route Handler ─────────────────────────────────────────────────────────────
+// ── Gemini call with timeout + one retry on 429 ─────────────────────────────
+async function callGemini(prompt, screenshotBase64) {
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` +
+    `?key=${process.env.GEMINI_API_KEY}`;
+
+  const body = {
+    contents: [
+      {
+        parts: [
+          { text: prompt },
+          { inlineData: { mimeType: 'image/jpeg', data: screenshotBase64 } },
+        ],
+      },
+    ],
+    generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
+  };
+
+  const doFetch = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      const data = await response.json();
+      return { response, data };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  let { response, data } = await doFetch();
+
+  // Rate limited — wait 5s and retry once before failing.
+  if (response.status === 429) {
+    console.warn('[vision] Gemini 429 — retrying once in 5s');
+    await new Promise((r) => setTimeout(r, 5000));
+    ({ response, data } = await doFetch());
+  }
+
+  return { response, data };
+}
+
+// ── Route Handler ────────────────────────────────────────────────────────────
 router.post('/', async (req, res) => {
   const {
     mode,
@@ -93,6 +134,8 @@ router.post('/', async (req, res) => {
     currentStepIndex = 0,
     totalSteps = 1,
     findDescription,
+    screenWidth = 1080,
+    screenHeight = 2400,
     language = 'en',
   } = req.body || {};
 
@@ -109,42 +152,26 @@ router.post('/', async (req, res) => {
   try {
     const prompt =
       mode === 'locate'
-        ? LOCATE_PROMPT(task, currentStepIndex, totalSteps, findDescription)
-        : TROUBLESHOOT_PROMPT(task, currentStepIndex, totalSteps, findDescription, language);
+        ? LOCATE_PROMPT(task, currentStepIndex, totalSteps, findDescription, screenWidth, screenHeight)
+        : TROUBLESHOOT_PROMPT(task, currentStepIndex, totalSteps, findDescription, language, screenWidth, screenHeight);
 
-    const url =
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` +
-      `?key=${process.env.GEMINI_API_KEY}`;
+    if (DEBUG) console.log(`[vision/${mode}] prompt:\n${prompt}`);
 
-    const body = {
-      contents: [
-        {
-          parts: [
-            { text: prompt },
-            { inlineData: { mimeType: 'image/jpeg', data: screenshotBase64 } },
-          ],
-        },
-      ],
-      generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    const data = await response.json();
+    const { response, data } = await callGemini(prompt, screenshotBase64);
 
     if (!response.ok) {
       const msg = data.error?.message || 'Gemini Vision API failed';
-      console.error(`[vision/${mode}] Gemini error:`, msg);
-      const status = msg.includes('429') || msg.includes('quota') ? 429 : 500;
+      console.error(`[vision/${mode}] Gemini error (${response.status}):`, msg);
+      const status = response.status === 429 ? 429 : 500;
       return res.status(status).json({ error: msg });
     }
 
     const rawText = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-    console.log(`[vision/${mode}] raw: ${rawText.substring(0, 300)}`);
+    if (DEBUG) {
+      console.log(`[vision/${mode}] raw response:\n${rawText}`);
+    } else {
+      console.log(`[vision/${mode}] raw: ${rawText.substring(0, 300)}`);
+    }
 
     const cleaned = rawText
       .replace(/^```json\s*/i, '')
@@ -163,8 +190,9 @@ router.post('/', async (req, res) => {
     console.log(`[vision/${mode}] parsed:`, JSON.stringify(parsed).substring(0, 200));
     return res.json(parsed);
   } catch (err) {
-    console.error('[vision] error:', err.message);
-    return res.status(500).json({ error: err.message || 'Vision API failed' });
+    const message = err.name === 'AbortError' ? 'Gemini Vision timed out' : err.message;
+    console.error('[vision] error:', message);
+    return res.status(500).json({ error: message || 'Vision API failed' });
   }
 });
 
