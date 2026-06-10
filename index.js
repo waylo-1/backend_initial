@@ -10,13 +10,16 @@ const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
 const { generateSteps } = require('./gemini');
 const supabase = require('./supabase');
+const visionRouter = require('./routes/vision');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+// Raised limit: /vision receives Base64 JPEG screenshots which exceed the
+// default 100kb body limit.
+app.use(express.json({ limit: '12mb' }));
 
 // Rate limiter for /plan endpoint
 const planLimiter = rateLimit({
@@ -77,6 +80,9 @@ app.post('/plan', planLimiter, async (req, res) => {
     });
   }
 });
+
+// Vision endpoint (Layer 3: locate + troubleshoot)
+app.use('/vision', visionRouter);
 
 /**
  * POST /guide
