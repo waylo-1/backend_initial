@@ -211,8 +211,20 @@ Important rules:
 - ਸਿਰਫ਼ JSON array ਰਿਟਰਨ ਕਰੋ, ਕੋਈ explanation ਨਹੀਂ, markdown ਨਹੀਂ, backticks ਨਹੀਂ`
   };
 
-  return prompts[languageCode] || prompts.en;
+  return (prompts[languageCode] || prompts.en) + STEP_FIELDS_ADDENDUM;
 }
+
+/**
+ * Shared (English) addendum appended to every language prompt. Field rules are
+ * kept in English for all languages — findDescription already is, and Gemini
+ * follows English schema instructions reliably regardless of prompt language.
+ */
+const STEP_FIELDS_ADDENDUM = `
+
+In addition to the fields above, EVERY step object must also include these two fields:
+- "targetPackage": ONLY if this step tells the user to open or launch an app, set this to that app's Android package name (e.g. "com.instagram.android" for Instagram, "com.whatsapp" for WhatsApp, "com.google.android.youtube" for YouTube). For every other step, set it to null.
+- "doneWhen": a short English label or text that becomes visible on the screen ONLY AFTER this step is completed (it is used to detect that the step is done). If no reliable such label exists, set it to null.
+Keep all previously listed fields exactly as specified. Return ONLY the JSON array.`;
 
 
 /**
@@ -298,6 +310,18 @@ async function generateSteps(task, languageCode) {
       resolveAppPackage(step.findDescription) ||
       taskPackage ||
       null;
+
+    // Normalize the verification fields so clients can rely on them being
+    // present. If Gemini marked this as an open-app step but used a name we
+    // can resolve deterministically, prefer the known package.
+    if (typeof step.doneWhen !== 'string' || step.doneWhen.trim() === '') {
+      step.doneWhen = null;
+    }
+    if (typeof step.targetPackage !== 'string' || step.targetPackage.trim() === '') {
+      step.targetPackage = null;
+    } else {
+      step.targetPackage = resolveAppPackage(step.appName) || step.targetPackage;
+    }
   }
 
   console.log(`Gemini response received, ${steps.length} steps parsed`);
