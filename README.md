@@ -5,10 +5,10 @@ Backend server for Waylo - an AI-powered Android app that helps elderly users na
 ## Features
 
 - **Multilingual Support**: Detects and responds in 10 Indian languages + English
-- **AI-Powered Instructions**: Uses Google Gemini 2.5 Flash to generate step-by-step guides
+- **AI-Powered Instructions**: Uses AWS Bedrock (Claude) to generate step-by-step guides
 - **App Package Resolution**: Each step is enriched with the target app's Android `appPackage`
   so the on-device element finder prefers the real app over look-alikes
-- **Vision Fallback** (`POST /vision`): Gemini Vision locates missing elements on a screenshot
+- **Vision Fallback** (`POST /vision`): Claude (Bedrock) vision locates missing elements on a screenshot
   (`locate`) or generates recovery steps when the screen looks wrong (`troubleshoot`)
 - **Persistent Guides**: Saves guides to Supabase with 30-day expiry
 - **Rate Limiting**: Protects the /plan endpoint from abuse
@@ -46,7 +46,10 @@ cp .env.example .env
 ```
 
 Required variables:
-- `GEMINI_API_KEY`: Your Google Gemini API key
+- `AWS_ACCESS_KEY_ID`: Your AWS access key
+- `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
+- `AWS_REGION`: Bedrock region (e.g. `us-east-1`)
+- `BEDROCK_MODEL_ID`: Claude model id / inference profile (e.g. `us.anthropic.claude-3-5-sonnet-20241022-v2:0`)
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
 - `PORT`: Server port (default: 3000)
@@ -198,9 +201,10 @@ Retrieve a saved guide by ID.
 ```
 waylo-backend/
 ├── index.js          # Main Express server
-├── gemini.js         # Gemini API integration with multilingual prompts + appPackage enrichment
+├── bedrock.js        # AWS Bedrock (Claude) integration with multilingual prompts + appPackage enrichment
 ├── routes/
-│   └── vision.js     # POST /vision — Gemini Vision locate + troubleshoot
+│   ├── vision.js          # /vision — Claude vision: locate + troubleshoot (Android)
+│   └── vision-fallback.js # /vision-fallback — desktop (macOS) screenshot analysis
 ├── supabase.js       # Supabase database client
 ├── langdetect.js     # Language detection utility
 ├── package.json      # Dependencies and scripts
@@ -228,7 +232,10 @@ Layer 2 Part C needs `app/src/main/assets/icon_classifier.tflite` (bundled; any
 This backend is designed to be deployed on Railway, Render, or any Node.js hosting platform.
 
 ### Environment Variables Required:
-- `GEMINI_API_KEY`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `BEDROCK_MODEL_ID`
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `PORT` (auto-set by most platforms)
@@ -237,7 +244,7 @@ This backend is designed to be deployed on Railway, Render, or any Node.js hosti
 
 The server logs important events for monitoring:
 - Plan requests with detected language
-- Gemini responses with step count
+- Bedrock responses with step count
 - Guide saves with generated IDs
 
 ## Error Handling

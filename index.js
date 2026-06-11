@@ -8,9 +8,10 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps } = require('./gemini');
+const { generateSteps, generateDesktopSteps } = require('./bedrock');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
+const visionFallbackRouter = require('./routes/vision-fallback');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -46,7 +47,7 @@ app.get('/health', (req, res) => {
  */
 app.post('/plan', planLimiter, async (req, res) => {
   try {
-    const { task } = req.body;
+    const { task, platform } = req.body;
 
     if (!task || typeof task !== 'string' || task.trim().length === 0) {
       return res.status(400).json({
@@ -55,14 +56,22 @@ app.post('/plan', planLimiter, async (req, res) => {
       });
     }
 
+    // macOS desktop companion (Waylo Desktop) uses a different element model
+    // and expects { task, app, steps:[{ index, instruction, findDescription }] }.
+    if (platform === 'macos') {
+      console.log(`Plan requested (macOS): ${task}`);
+      const plan = await generateDesktopSteps(task);
+      console.log(`Bedrock desktop response received, ${plan.steps?.length || 0} steps parsed`);
+      return res.json(plan);
+    }
 
     // Detect language
     const language = detectLanguage(task);
     console.log(`Plan requested: ${task} | Language detected: ${language}`);
 
-    // Generate steps using Gemini
+    // Generate steps using Claude on Bedrock
     const steps = await generateSteps(task, language);
-    console.log(`Gemini response received, ${steps.length} steps parsed`);
+    console.log(`Bedrock response received, ${steps.length} steps parsed`);
 
     res.json({
       success: true,
@@ -83,6 +92,9 @@ app.post('/plan', planLimiter, async (req, res) => {
 
 // Vision endpoint (Layer 3: locate + troubleshoot)
 app.use('/vision', visionRouter);
+
+// Vision fallback endpoint for the macOS desktop companion
+app.use('/vision-fallback', visionFallbackRouter);
 
 /**
  * POST /guide

@@ -1,17 +1,77 @@
 /**
- * Gemini API integration for Waylo
- * Generates step-by-step instructions in user's language
+ * AWS Bedrock (Claude) integration for Waylo.
+ * Generates step-by-step instructions in the user's language and powers the
+ * vision endpoints. Uses the Bedrock Converse API which handles both text and
+ * image inputs with a single, consistent request shape.
  */
 
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+const {
+  BedrockRuntimeClient,
+  ConverseCommand,
+} = require('@aws-sdk/client-bedrock-runtime');
 
-if (!process.env.GEMINI_API_KEY) {
-  console.error('Missing GEMINI_API_KEY in environment variables');
+const REGION = process.env.AWS_REGION || 'us-east-1';
+const MODEL_ID = process.env.BEDROCK_MODEL_ID;
+
+if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
+  console.error('Missing AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in environment variables');
+  process.exit(1);
+}
+if (!MODEL_ID) {
+  console.error('Missing BEDROCK_MODEL_ID in environment variables');
   process.exit(1);
 }
 
+const client = new BedrockRuntimeClient({
+  region: REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
+
 /**
- * Returns system prompt in the appropriate language
+ * Low-level helper: send a Converse request to Claude and return the text reply.
+ * @param {Object} opts
+ * @param {string} opts.system - System prompt.
+ * @param {Array}  opts.content - Array of content blocks for the user message.
+ * @param {number} [opts.maxTokens=1500]
+ * @param {number} [opts.temperature=0.3]
+ * @returns {Promise<string>} The model's text response.
+ */
+async function converse({ system, content, maxTokens = 1500, temperature = 0.3 }) {
+  const command = new ConverseCommand({
+    modelId: MODEL_ID,
+    system: system ? [{ text: system }] : undefined,
+    messages: [{ role: 'user', content }],
+    inferenceConfig: { maxTokens, temperature },
+  });
+
+  const response = await client.send(command);
+  const text = response?.output?.message?.content
+    ?.map((block) => block.text || '')
+    .join('')
+    .trim();
+
+  if (!text) {
+    throw new Error('Bedrock returned an empty response');
+  }
+  return text;
+}
+
+/** Strips markdown code fences from a model response. */
+function stripFences(text) {
+  return text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```\s*$/i, '')
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .trim();
+}
+
+/**
+ * Returns the system prompt in the appropriate language.
  * @param {string} languageCode - Language code (hi, en, ta, etc.)
  * @returns {string} System prompt
  */
@@ -94,7 +154,6 @@ Important rules:
 - findDescription ఎల్లప్పుడూ ఆంగ్లంలో (యూజర్ భాషలో కాదు)
 - JSON array మాత్రమే రిటర్న్ చేయండి, explanation వద్దు, markdown వద్దు, backticks వద్దు`,
 
-
     bn: `আপনি Waylo, বয়স্ক স্মার্টফোন ব্যবহারকারীদের জন্য একটি সহায়ক গাইড।
 ইউজার বাংলা বলেন। শুধুমাত্র বাংলায় উত্তর দিন।
 প্রদত্ত টাস্কের জন্য, একটি JSON array রিটার্ন করুন যেখানে ধাপগুলি থাকবে।
@@ -151,7 +210,6 @@ Important rules:
 - દરેક instruction વધુમાં વધુ 8 શબ્દો
 - findDescription હંમેશાં અંગ્રેજીમાં (યુઝરની ભાષામાં નહીં)
 - ફક્ત JSON array પરત કરો, explanation નહીં, markdown નહીં, backticks નહીં`,
-
 
     kn: `ನೀವು Waylo, ವೃದ್ಧ ಸ್ಮಾರ್ಟ್‌ಫೋನ್ ಬಳಕೆದಾರರಿಗೆ ಸಹಾಯಕ ಮಾರ್ಗದರ್ಶಿ.
 ಬಳಕೆದಾರ ಕನ್ನಡ ಮಾತನಾಡುತ್ತಾರೆ. ಕೇವಲ ಕನ್ನಡದಲ್ಲಿ ಉತ್ತರಿಸಿ.
@@ -215,8 +273,9 @@ Important rules:
 }
 
 /**
+/**
  * Shared (English) addendum appended to every language prompt. Field rules are
- * kept in English for all languages — findDescription already is, and Gemini
+ * kept in English for all languages — findDescription already is, and Claude
  * follows English schema instructions reliably regardless of prompt language.
  */
 const STEP_FIELDS_ADDENDUM = `
@@ -261,7 +320,39 @@ function resolveAppPackage(text) {
 }
 
 /**
- * Generates step-by-step instructions using Gemini AI
+ * System prompt for macOS desktop guidance (Waylo Desktop companion app).
+ * Returns a single object: { task, app, steps:[{ index, instruction, findDescription }] }
+ */
+function getDesktopSystemPrompt() {
+  return `
+You are Waylo, an AI guide that helps users learn Mac desktop software.
+Generate a step-by-step guide for the given task.
+Return ONLY valid JSON, no explanation, no markdown.
+
+Format:
+{
+  "task": "original task",
+  "app": "app name (e.g. Microsoft Word, Excel, Safari)",
+  "steps": [
+    {
+      "index": 1,
+      "instruction": "Simple English instruction for the user",
+      "findDescription": "English description of the macOS UI element to find (role + label + location hint)"
+    }
+  ]
+}
+
+Rules:
+- findDescription must be specific: include the element's role (button, menu item, text field),
+  its exact label, and a location hint (e.g. "Bold button in the Home tab toolbar",
+  "Insert menu in the menu bar", "Name text field in the Save dialog")
+- Instructions should be clear and action-oriented: "Click...", "Type...", "Select..."
+- For menu items, describe the full path: "Format > Text > Bold menu item"
+- Maximum 10 steps per guide`.trim();
+}
+
+/**
+ * Generates step-by-step instructions using Claude on Bedrock (Android / mobile).
  * @param {string} task - The user's task description
  * @param {string} languageCode - Detected language code
  * @returns {Promise<Array>} Array of step objects
@@ -269,37 +360,16 @@ function resolveAppPackage(text) {
 async function generateSteps(task, languageCode) {
   const systemPrompt = getSystemPrompt(languageCode);
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
-
-  const body = {
-    contents: [
-      {
-        parts: [{ text: systemPrompt + "\n\nTask: " + task }]
-      }
-    ],
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 1500
-    }
-  };
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+  const text = await converse({
+    system: systemPrompt,
+    content: [{ text: `Task: ${task}` }],
+    maxTokens: 1500,
+    temperature: 0.3,
   });
 
-  const data = await response.json();
+  console.log('Bedrock raw response:', text.substring(0, 200));
 
-  if (!response.ok) {
-    throw new Error(data.error?.message || 'Gemini API failed');
-  }
-
-  const text = data.candidates[0].content.parts[0].text;
-  console.log("Gemini raw response:", text.substring(0, 200));
-
-  const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-  const steps = JSON.parse(cleaned);
+  const steps = JSON.parse(stripFences(text));
 
   // Enrich each step with the target app's package name. Try the step's own
   // appName / findDescription first, then fall back to the overall task.
@@ -312,7 +382,7 @@ async function generateSteps(task, languageCode) {
       null;
 
     // Normalize the verification fields so clients can rely on them being
-    // present. If Gemini marked this as an open-app step but used a name we
+    // present. If the model marked this as an open-app step but used a name we
     // can resolve deterministically, prefer the known package.
     if (typeof step.doneWhen !== 'string' || step.doneWhen.trim() === '') {
       step.doneWhen = null;
@@ -324,9 +394,45 @@ async function generateSteps(task, languageCode) {
     }
   }
 
-  console.log(`Gemini response received, ${steps.length} steps parsed`);
-
+  console.log(`Bedrock response received, ${steps.length} steps parsed`);
   return steps;
 }
 
-module.exports = { getSystemPrompt, generateSteps, resolveAppPackage };
+/**
+ * Generates a macOS desktop guide plan using Claude on Bedrock.
+ * @param {string} task - The user's task description
+ * @returns {Promise<Object>} { task, app, steps }
+ */
+async function generateDesktopSteps(task) {
+  const systemPrompt = getDesktopSystemPrompt();
+
+  const text = await converse({
+    system: systemPrompt,
+    content: [{ text: `Task: ${task}` }],
+    maxTokens: 1500,
+    temperature: 0.3,
+  });
+
+  const plan = JSON.parse(stripFences(text));
+
+  // Normalise: ensure each step has an integer index.
+  if (Array.isArray(plan.steps)) {
+    plan.steps = plan.steps.map((s, i) => ({
+      index: typeof s.index === 'number' ? s.index : i + 1,
+      instruction: s.instruction,
+      findDescription: s.findDescription,
+    }));
+  }
+
+  return plan;
+}
+
+module.exports = {
+  converse,
+  stripFences,
+  getSystemPrompt,
+  generateSteps,
+  resolveAppPackage,
+  getDesktopSystemPrompt,
+  generateDesktopSteps,
+};

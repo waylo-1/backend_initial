@@ -1,22 +1,19 @@
-// routes/vision.js
-// POST /vision — Gemini Vision for element location and troubleshooting.
+// backend_initial/routes/vision.js
+// POST /vision — Claude (AWS Bedrock) vision for element location and troubleshooting.
 //
 // Two modes:
 //   "locate"       — find an expected element on screen, return (x, y)
 //   "troubleshoot" — element missing, analyze screen and generate new steps
 //
-// Uses the Gemini REST API via node-fetch (same approach as gemini.js), so no
-// extra npm dependency is required. The Gemini key stays server-side.
-//
-// Set WAYLO_DEBUG=1 to log full prompts and raw Gemini responses.
+// Uses the shared Bedrock Converse client (bedrock.js). AWS credentials stay
+// server-side. Set WAYLO_DEBUG=1 to log full prompts and raw model responses.
 
 const express = require('express');
 const router = express.Router();
 
-const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
+const { converse, stripFences } = require('../bedrock');
 
 const DEBUG = process.env.WAYLO_DEBUG === '1';
-const GEMINI_TIMEOUT_MS = 60000; // vision calls on Gemini Flash can be slow
 
 // ── Prompts ─────────────────────────────────────────────────────────────────
 const LOCATE_PROMPT = (task, stepIndex, totalSteps, findDescription, width, height) => `
@@ -78,51 +75,29 @@ If not recoverable (feature doesn't exist, needs paid plan, etc.):
 set recoverable=false, newSteps=[], and explain clearly in "explanation".
 `.trim();
 
-// ── Gemini call with timeout + one retry on 429 ─────────────────────────────
-async function callGemini(prompt, screenshotBase64) {
-  const url =
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent` +
-    `?key=${process.env.GEMINI_API_KEY}`;
-
-  const body = {
-    contents: [
-      {
-        parts: [
-          { text: prompt },
-          { inlineData: { mimeType: 'image/jpeg', data: screenshotBase64 } },
-        ],
+// ── Bedrock vision call with one retry on throttling ────────────────────────
+async function callModel(prompt, screenshotBase64) {
+  const content = [
+    { text: prompt },
+    {
+      image: {
+        format: 'jpeg',
+        source: { bytes: Buffer.from(screenshotBase64, 'base64') },
       },
-    ],
-    generationConfig: { temperature: 0.2, maxOutputTokens: 1500 },
-  };
+    },
+  ];
 
-  const doFetch = async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      });
-      const data = await response.json();
-      return { response, data };
-    } finally {
-      clearTimeout(timer);
+  try {
+    return await converse({ content, maxTokens: 1500, temperature: 0.2 });
+  } catch (err) {
+    // Throttled — wait 5s and retry once before failing.
+    if (/throttl|429|rate/i.test(err.message || '')) {
+      console.warn('[vision] Bedrock throttled — retrying once in 5s');
+      await new Promise((r) => setTimeout(r, 5000));
+      return await converse({ content, maxTokens: 1500, temperature: 0.2 });
     }
-  };
-
-  let { response, data } = await doFetch();
-
-  // Rate limited — wait 5s and retry once before failing.
-  if (response.status === 429) {
-    console.warn('[vision] Gemini 429 — retrying once in 5s');
-    await new Promise((r) => setTimeout(r, 5000));
-    ({ response, data } = await doFetch());
+    throw err;
   }
-
-  return { response, data };
 }
 
 // ── Route Handler ────────────────────────────────────────────────────────────
@@ -145,9 +120,6 @@ router.post('/', async (req, res) => {
   if (!['locate', 'troubleshoot'].includes(mode)) {
     return res.status(400).json({ error: "mode must be 'locate' or 'troubleshoot'" });
   }
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'GEMINI_API_KEY not configured' });
-  }
 
   try {
     const prompt =
@@ -157,42 +129,31 @@ router.post('/', async (req, res) => {
 
     if (DEBUG) console.log(`[vision/${mode}] prompt:\n${prompt}`);
 
-    const { response, data } = await callGemini(prompt, screenshotBase64);
+    const rawText = await callModel(prompt, screenshotBase64);
 
-    if (!response.ok) {
-      const msg = data.error?.message || 'Gemini Vision API failed';
-      console.error(`[vision/${mode}] Gemini error (${response.status}):`, msg);
-      const status = response.status === 429 ? 429 : 500;
-      return res.status(status).json({ error: msg });
-    }
-
-    const rawText = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
     if (DEBUG) {
       console.log(`[vision/${mode}] raw response:\n${rawText}`);
     } else {
       console.log(`[vision/${mode}] raw: ${rawText.substring(0, 300)}`);
     }
 
-    const cleaned = rawText
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
+    const cleaned = stripFences(rawText);
 
     let parsed;
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
       console.error('[vision] JSON parse failed:', e.message, 'raw:', rawText);
-      return res.status(500).json({ error: 'Gemini returned invalid JSON', raw: rawText });
+      return res.status(500).json({ error: 'Model returned invalid JSON', raw: rawText });
     }
 
     console.log(`[vision/${mode}] parsed:`, JSON.stringify(parsed).substring(0, 200));
     return res.json(parsed);
   } catch (err) {
-    const message = err.name === 'AbortError' ? 'Gemini Vision timed out' : err.message;
-    console.error('[vision] error:', message);
-    return res.status(500).json({ error: message || 'Vision API failed' });
+    console.error('[vision] error:', err.message);
+    const msg = err.message || 'Vision API failed';
+    const status = /throttl|429|rate/i.test(msg) ? 429 : 500;
+    return res.status(status).json({ error: msg });
   }
 });
 
