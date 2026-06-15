@@ -427,11 +427,139 @@ async function generateDesktopSteps(task) {
   return plan;
 }
 
+/**
+ * System prompt for the enriched Android step planner (Nova Micro).
+ * Produces the rich 8-field step format that gives the on-device detection
+ * layers far more signal to match against, reducing vision fallback calls.
+ */
+const ENRICHED_SYSTEM_PROMPT = `You are Waylo's step planner. You generate step-by-step guides for elderly Indian users navigating Android smartphones.
+
+Your output must be ONLY valid JSON. No explanation, no markdown, no preamble.
+
+RESPONSE FORMAT:
+{
+  "task": "original task string",
+  "appPackage": "com.example.app",
+  "appName": "App Name",
+  "steps": [
+    {
+      "stepNumber": 1,
+      "instruction": "Simple English instruction, max 12 words",
+      "findDescription": "short element description for search, 3-6 words lowercase",
+      "elementType": "one of the element type enum values",
+      "screenRegion": "one of the screen region enum values",
+      "visualDescription": "what it looks like: color shape icon text, max 15 words",
+      "alternateLabels": ["label1", "label2"],
+      "fallbackHint": "what to do if element not visible on screen",
+      "parentContainer": "UI container name"
+    }
+  ]
+}
+
+ELEMENT TYPE ENUM (use exactly): BUTTON, ICON_BUTTON, FAB, TEXT_INPUT, NAV_ITEM, TOGGLE, APP_ICON, LIST_ITEM, IMAGE, TAB, OVERFLOW_MENU, BACK_BUTTON, OTHER
+
+SCREEN REGION ENUM (use exactly): top, top_center, bottom, bottom_right, center, left, right, full
+
+RULES:
+1. instruction — plain English, max 12 words, assume user has never used a smartphone
+2. findDescription — lowercase, space-separated keywords, NO filler words like "the" or "on". Good: "plus create post button". Bad: "the plus button at the bottom to create a new post"
+3. elementType — pick the most specific match from the enum
+4. screenRegion — where is this element on the screen physically
+5. visualDescription — describe appearance: color, shape, icon symbol, relative size
+6. alternateLabels — other text this element might show. include both English and Hinglish variants if applicable
+7. fallbackHint — concrete recovery action if element not found. start with "if" or "scroll" or "go back"
+8. parentContainer — name of the UI section. use standard Android UI names
+9. appPackage — the correct Android package name for the app in the task
+10. Generate complete steps from app launch to task completion
+11. First step should always be: open the app (APP_ICON on home screen or app drawer)
+12. Keep steps atomic — one tap per step`;
+
+const ELEMENT_TYPE_ENUM = new Set([
+  'BUTTON', 'ICON_BUTTON', 'FAB', 'TEXT_INPUT', 'NAV_ITEM', 'TOGGLE',
+  'APP_ICON', 'LIST_ITEM', 'IMAGE', 'TAB', 'OVERFLOW_MENU', 'BACK_BUTTON', 'OTHER',
+]);
+const SCREEN_REGION_ENUM = new Set([
+  'top', 'top_center', 'bottom', 'bottom_right', 'center', 'left', 'right', 'full',
+]);
+
+/**
+ * Validate and normalise a single enriched step. Missing or invalid fields are
+ * filled with safe defaults rather than throwing, so a partial model response
+ * never crashes the route.
+ * @param {Object} step - raw step object from the model
+ * @param {number} index - 0-based position (for stepNumber fallback)
+ * @returns {Object} a fully-populated step
+ */
+function validateEnrichedStep(step, index) {
+  const s = step && typeof step === 'object' ? step : {};
+
+  let elementType = typeof s.elementType === 'string' ? s.elementType.toUpperCase() : 'OTHER';
+  if (!ELEMENT_TYPE_ENUM.has(elementType)) elementType = 'OTHER';
+
+  let screenRegion = typeof s.screenRegion === 'string' ? s.screenRegion.toLowerCase() : 'center';
+  if (!SCREEN_REGION_ENUM.has(screenRegion)) screenRegion = 'center';
+
+  let alternateLabels = Array.isArray(s.alternateLabels)
+    ? s.alternateLabels.filter((l) => typeof l === 'string' && l.trim() !== '')
+    : [];
+
+  return {
+    stepNumber: Number.isInteger(s.stepNumber) ? s.stepNumber : index + 1,
+    instruction: typeof s.instruction === 'string' && s.instruction.trim() !== ''
+      ? s.instruction
+      : 'Follow the dot',
+    findDescription: typeof s.findDescription === 'string' ? s.findDescription : '',
+    elementType,
+    screenRegion,
+    visualDescription: typeof s.visualDescription === 'string' ? s.visualDescription : '',
+    alternateLabels,
+    fallbackHint: typeof s.fallbackHint === 'string' && s.fallbackHint.trim() !== ''
+      ? s.fallbackHint
+      : 'scroll down to find the element',
+    parentContainer: typeof s.parentContainer === 'string' ? s.parentContainer : '',
+  };
+}
+
+/**
+ * Generate an enriched Android plan using the model on Bedrock. Returns
+ * { appPackage, appName, steps } with every step validated to all 8 fields.
+ * @param {string} task - the user's task description
+ * @returns {Promise<{appPackage: string, appName: string, steps: Array}>}
+ */
+async function generateEnrichedSteps(task) {
+  const text = await converse({
+    system: ENRICHED_SYSTEM_PROMPT,
+    content: [{ text: `Task: ${task}` }],
+    maxTokens: 2000,
+    temperature: 0.3,
+  });
+
+  console.log('Bedrock enriched raw response:', text.substring(0, 200));
+
+  const parsed = JSON.parse(stripFences(text));
+  const rawSteps = Array.isArray(parsed.steps) ? parsed.steps : [];
+  const steps = rawSteps.map((s, i) => validateEnrichedStep(s, i));
+
+  // appPackage: prefer the model's value, else resolve deterministically from
+  // the task (more reliable than asking the model for package names).
+  const appPackage =
+    (typeof parsed.appPackage === 'string' && parsed.appPackage.trim() !== ''
+      ? parsed.appPackage
+      : null) || resolveAppPackage(task) || '';
+
+  const appName = typeof parsed.appName === 'string' ? parsed.appName : '';
+
+  console.log(`Enriched plan: appPackage=${appPackage} appName=${appName} steps=${steps.length}`);
+  return { appPackage, appName, steps };
+}
+
 module.exports = {
   converse,
   stripFences,
   getSystemPrompt,
   generateSteps,
+  generateEnrichedSteps,
+  validateEnrichedStep,
   resolveAppPackage,
   getDesktopSystemPrompt,
   generateDesktopSteps,

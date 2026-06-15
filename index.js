@@ -8,10 +8,11 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps } = require('./bedrock');
+const { generateSteps, generateDesktopSteps, generateEnrichedSteps } = require('./bedrock');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
+const failureRouter = require('./routes/failure');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -69,15 +70,19 @@ app.post('/plan', planLimiter, async (req, res) => {
     const language = detectLanguage(task);
     console.log(`Plan requested: ${task} | Language detected: ${language}`);
 
-    // Generate steps using Claude on Bedrock
-    const steps = await generateSteps(task, language);
-    console.log(`Bedrock response received, ${steps.length} steps parsed`);
+    // Generate enriched 8-field steps. The richer per-step metadata gives the
+    // Android detection layers much more signal to match against, reducing
+    // costly vision fallbacks.
+    const plan = await generateEnrichedSteps(task);
+    console.log(`Bedrock response received, ${plan.steps.length} enriched steps parsed`);
 
     res.json({
       success: true,
+      appPackage: plan.appPackage,
+      appName: plan.appName,
       language,
-      steps,
-      totalSteps: steps.length
+      steps: plan.steps,
+      totalSteps: plan.steps.length
     });
 
   } catch (error) {
@@ -95,6 +100,9 @@ app.use('/vision', visionRouter);
 
 // Vision fallback endpoint for the macOS desktop companion
 app.use('/vision-fallback', visionFallbackRouter);
+
+// Detection failure logging endpoint (stores misses for future YOLO training)
+app.use('/failure', failureRouter);
 
 /**
  * POST /guide
