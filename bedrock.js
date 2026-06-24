@@ -340,6 +340,7 @@ Format:
       "instruction": "Simple, warm English instruction for the user",
       "targetLabel": "exact visible text on the element, e.g. File or Bold",
       "elementDescription": "natural-language description of the element + location",
+      "screenRegion": "ribbon",
       "key": null
     }
   ]
@@ -352,6 +353,14 @@ Rules:
     "key"   — the user presses a key like Enter or Tab to confirm. Set "key"
               to "return", "tab", "escape" or "space".
     "info"  — an informational step with no action.
+- "screenRegion" tells the app WHERE to look. Use exactly one of:
+    "menuBar"     — the macOS top bar (Apple menu, File, Edit, View...)
+    "ribbon"      — the app toolbar / ribbon with formatting buttons & icons
+    "dialog"      — a popup window or modal dialog box
+    "sidebar"     — a panel on the left or right side
+    "spreadsheet" — the main content area (cells, document, canvas)
+    "statusBar"   — the thin bar at the very bottom of the app
+    "fullScreen"  — only if you are truly unsure where the element is
 - For "click" steps, "targetLabel" MUST be the exact visible text on the element
   as it appears on screen (e.g. "File", "Export", "Bold", "New Folder"). If the
   element is icon-only (no visible text), set "targetLabel" to "" and describe it
@@ -430,6 +439,7 @@ async function generateDesktopSteps(task) {
   const plan = JSON.parse(stripFences(text));
 
   // Normalise: ensure each step has an integer index and the expected fields.
+  const REGIONS = ['menuBar', 'ribbon', 'dialog', 'sidebar', 'spreadsheet', 'statusBar', 'fullScreen'];
   if (Array.isArray(plan.steps)) {
     plan.steps = plan.steps.map((s, i) => ({
       index: typeof s.index === 'number' ? s.index : i + 1,
@@ -438,6 +448,7 @@ async function generateDesktopSteps(task) {
       targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
       elementDescription:
         s.elementDescription || s.findDescription || s.instruction || '',
+      screenRegion: REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
       key: typeof s.key === 'string' ? s.key : null,
       // Keep findDescription for backward compatibility with older clients.
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
@@ -655,6 +666,7 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
         instruction: s.instruction || '',
         targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
         elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
+        screenRegion: ['menuBar', 'ribbon', 'dialog', 'sidebar', 'spreadsheet', 'statusBar', 'fullScreen'].includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
         key: typeof s.key === 'string' ? s.key : null,
         findDescription: s.findDescription || s.elementDescription || s.instruction || '',
       }))
