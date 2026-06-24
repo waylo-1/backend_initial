@@ -8,7 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep } = require('./bedrock');
+const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject } = require('./bedrock');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
@@ -100,6 +100,30 @@ app.use('/vision', visionRouter);
 
 // Vision fallback endpoint for the macOS desktop companion
 app.use('/vision-fallback', visionFallbackRouter);
+
+/**
+ * POST /nova-vision
+ * Layer 3 grounding via Nova 2 Lite object detection.
+ * Body: { image_base64, target_label, step_instruction }
+ * Returns: { found, bbox: [xMin,yMin,xMax,yMax] (0-1000), label } or { found: false }
+ */
+app.post('/nova-vision', async (req, res) => {
+  try {
+    const { image_base64, target_label, step_instruction } = req.body || {};
+    if (!image_base64 || !target_label) {
+      return res.status(400).json({ found: false, error: 'image_base64 and target_label are required' });
+    }
+    const result = await detectObject({
+      screenshot: image_base64,
+      targetLabel: target_label,
+      stepInstruction: step_instruction || '',
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in /nova-vision:', error.message);
+    return res.status(200).json({ found: false });
+  }
+});
 
 /**
  * POST /recover

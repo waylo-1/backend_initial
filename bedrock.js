@@ -39,9 +39,9 @@ const client = new BedrockRuntimeClient({
  * @param {number} [opts.temperature=0.3]
  * @returns {Promise<string>} The model's text response.
  */
-async function converse({ system, content, maxTokens = 1500, temperature = 0.3 }) {
+async function converse({ system, content, maxTokens = 1500, temperature = 0.3, modelId }) {
   const command = new ConverseCommand({
-    modelId: MODEL_ID,
+    modelId: modelId || MODEL_ID,
     system: system ? [{ text: system }] : undefined,
     messages: [{ role: 'user', content }],
     inferenceConfig: { maxTokens, temperature },
@@ -584,6 +584,7 @@ module.exports = {
   getDesktopSystemPrompt,
   generateDesktopSteps,
   recoverDesktopStep,
+  detectObject,
 };
 
 /**
@@ -665,4 +666,96 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
     instruction: typeof parsed.instruction === 'string' ? parsed.instruction : '',
     steps,
   };
+}
+
+/**
+ * Layer 3 grounding via Nova 2 Lite's object-detection mode. Returns a bounding
+ * box on a 0–1000 normalized scale (top-left origin) as structured JSON.
+ * @returns {Promise<Object>} { found, bbox: [xMin,yMin,xMax,yMax], label }
+ */
+async function detectObject({ screenshot, targetLabel, stepInstruction }) {
+  const visionModel = process.env.BEDROCK_VISION_MODEL_ID || 'us.amazon.nova-2-lite-v1:0';
+  const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max]}]}`;
+
+  const detectionPrompt = `# Object Detection and Localization
+
+## Objective
+Detect and localize the specified UI element in this macOS screenshot.
+
+## Target Element
+${targetLabel}
+
+## Context
+The user is trying to: ${stepInstruction}
+
+## Instructions
+- Analyze the screenshot and find the UI element described above
+- It may be a button, menu item, toolbar icon, checkbox, or any interactive control
+- Fit the bounding box tightly around the element
+- Do not output duplicate bounding boxes
+- Coordinates use format [x_min, y_min, x_max, y_max] where:
+  * (x_min, y_min) is the top-left corner
+  * (x_max, y_max) is the bottom-right corner
+  * All values are on a 0-1000 scale (0,0 = top-left of image, 1000,1000 = bottom-right)
+
+## Output Requirements
+Return ONLY a JSON object wrapped in triple backticks labeled json, like this:
+\`\`\`json
+${schema}
+\`\`\`
+
+If the element is not visible in the screenshot, return:
+\`\`\`json
+{"${targetLabel}": []}
+\`\`\`
+
+Briefly explain what you see, then provide the JSON.`;
+
+  const text = await converse({
+    modelId: visionModel,
+    content: [
+      { image: { format: 'jpeg', source: { bytes: Buffer.from(screenshot, 'base64') } } },
+      { text: detectionPrompt },
+    ],
+    maxTokens: 400,
+    temperature: 0.0,
+  });
+
+  // Extract the JSON object (prefer a ```json fence, else parse whole text).
+  if (process.env.NOVA_DEBUG) console.log('[detectObject] RAW:', text);
+  let parsed;
+  const fence = text.match(/```json\s*([\s\S]*?)```/);
+  try {
+    parsed = JSON.parse((fence ? fence[1] : text).trim());
+  } catch {
+    console.warn('[detectObject] could not parse JSON from:', text.substring(0, 200));
+    return { found: false };
+  }
+
+  const detections = parsed[targetLabel];
+  if (!Array.isArray(detections) || detections.length === 0) {
+    return { found: false };
+  }
+
+  // Nova 2 Lite returns an array of bbox arrays: [[x,y,x,y], ...]
+  // Some prompts yield an array of objects: [{bbox:[x,y,x,y]}, ...]
+  const first = detections[0];
+  let bbox;
+  if (Array.isArray(first)) {
+    bbox = first;
+  } else if (Array.isArray(first && first.bbox)) {
+    bbox = first.bbox;
+  } else {
+    return { found: false };
+  }
+
+  if (bbox.length !== 4 || bbox.some((v) => typeof v !== 'number' || v < 0 || v > 1000)) {
+    console.warn('[detectObject] invalid bbox:', bbox);
+    return { found: false };
+  }
+  if (!(bbox[0] < bbox[2] && bbox[1] < bbox[3])) {
+    return { found: false };
+  }
+
+  return { found: true, bbox, label: targetLabel };
 }
