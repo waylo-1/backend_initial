@@ -8,7 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps, generateEnrichedSteps } = require('./bedrock');
+const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep } = require('./bedrock');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
@@ -100,6 +100,32 @@ app.use('/vision', visionRouter);
 
 // Vision fallback endpoint for the macOS desktop companion
 app.use('/vision-fallback', visionFallbackRouter);
+
+/**
+ * POST /recover
+ * Self-healing: when the desktop app can't locate an element, it sends a
+ * screenshot. The model relabels the element or replans the remaining steps.
+ */
+app.post('/recover', async (req, res) => {
+  try {
+    const { screenshot, task, instruction, targetLabel, stepIndex = 0, totalSteps = 1 } = req.body || {};
+    if (!screenshot || !task) {
+      return res.status(400).json({ error: 'screenshot and task are required' });
+    }
+    const result = await recoverDesktopStep({
+      screenshot,
+      task,
+      instruction: instruction || '',
+      targetLabel: targetLabel || '',
+      stepIndex,
+      totalSteps,
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in /recover:', error.message);
+    return res.status(500).json({ error: 'recover failed', details: error.message });
+  }
+});
 
 // Detection failure logging endpoint (stores misses for future YOLO training)
 app.use('/failure', failureRouter);

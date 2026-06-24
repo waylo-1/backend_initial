@@ -336,24 +336,33 @@ Format:
   "steps": [
     {
       "index": 1,
+      "action": "click",
       "instruction": "Simple, warm English instruction for the user",
       "targetLabel": "exact visible text on the element, e.g. File or Bold",
-      "elementDescription": "natural-language description of the element + location"
+      "elementDescription": "natural-language description of the element + location",
+      "key": null
     }
   ]
 }
 
 Rules:
-- "targetLabel" MUST be the exact visible text on the button or menu item as it
-  appears on screen (e.g. "File", "Export", "Bold", "New Folder"). This is used
-  for on-screen text matching, so it must match the real label exactly.
-- If the element is icon-only (no visible text), set "targetLabel" to "" and
-  describe it precisely in "elementDescription".
-- "elementDescription" includes the element's role and location hint
-  (e.g. "Bold button in the Home tab toolbar", "File menu in the menu bar").
-- "instruction" is clear, warm and action-oriented: "Click...", "Type...".
-- For menu items, describe the full path in elementDescription.
-- Maximum 8 steps. Each step = one click or one action.`.trim();
+- "action" classifies the step. Use exactly one of:
+    "click" — the user clicks a UI element (a button, menu, icon, field).
+    "type"  — the user types text (e.g. a file name). No element to click.
+    "key"   — the user presses a key like Enter or Tab to confirm. Set "key"
+              to "return", "tab", "escape" or "space".
+    "info"  — an informational step with no action.
+- For "click" steps, "targetLabel" MUST be the exact visible text on the element
+  as it appears on screen (e.g. "File", "Export", "Bold", "New Folder"). If the
+  element is icon-only (no visible text), set "targetLabel" to "" and describe it
+  precisely in "elementDescription".
+- For "type", "key" and "info" steps, set "targetLabel" to "".
+- Split compound actions into separate steps. Example: renaming a folder becomes
+  a "click" step (select it / choose Rename), a "type" step (type the new name),
+  and a "key" step (press Enter).
+- "elementDescription" includes the element's role and a location hint.
+- "instruction" is clear, warm and action-oriented.
+- Maximum 8 steps. Each step = one click, one type, or one key press.`.trim();
 }
 
 /**
@@ -424,10 +433,12 @@ async function generateDesktopSteps(task) {
   if (Array.isArray(plan.steps)) {
     plan.steps = plan.steps.map((s, i) => ({
       index: typeof s.index === 'number' ? s.index : i + 1,
+      action: ['click', 'type', 'key', 'info'].includes(s.action) ? s.action : 'click',
       instruction: s.instruction,
       targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
       elementDescription:
         s.elementDescription || s.findDescription || s.instruction || '',
+      key: typeof s.key === 'string' ? s.key : null,
       // Keep findDescription for backward compatibility with older clients.
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
     }));
@@ -572,4 +583,86 @@ module.exports = {
   resolveAppPackage,
   getDesktopSystemPrompt,
   generateDesktopSteps,
+  recoverDesktopStep,
 };
+
+/**
+ * Self-healing recovery for the macOS desktop guide. Given a screenshot and the
+ * step the app got stuck on, the model either:
+ *   - returns the correct visible label for the element (so the app can retry
+ *     local OCR/AX), or
+ *   - replans the remaining steps based on what is actually on screen.
+ * @returns {Promise<Object>} { visibleLabel, instruction, replan, steps }
+ */
+async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, stepIndex, totalSteps }) {
+  const systemPrompt = `
+You are Waylo, helping an elderly user complete a task on their Mac. The app
+could not locate the element for the current step on screen. Look carefully at
+the screenshot and help it recover.
+
+Decide between two responses:
+1. RELABEL — the element IS visible but under a different label. Return its exact
+   visible text so the app can find it.
+2. REPLAN — the screen is not where the app expected (a dialog is open, the user
+   is on a different screen, the previous step changed things). Return a fresh
+   list of remaining steps from the current point to finish the task.
+
+Return ONLY valid JSON, no markdown:
+{
+  "replan": false,
+  "visibleLabel": "exact visible text of the element to click (empty if replanning)",
+  "instruction": "updated warm instruction for this step",
+  "steps": []
+}
+OR
+{
+  "replan": true,
+  "visibleLabel": "",
+  "instruction": "",
+  "steps": [
+    { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "key": null }
+  ]
+}
+
+Rules for steps (when replanning): "action" is one of click/type/key/info.
+"targetLabel" is exact visible text for click steps, "" otherwise. Max 8 steps.`.trim();
+
+  const userText =
+    `Task: ${task}\n` +
+    `Stuck on step ${stepIndex} of ${totalSteps}.\n` +
+    `Step instruction: ${instruction}\n` +
+    `Element we looked for: ${targetLabel || '(no text label)'}\n` +
+    `Analyze the screenshot and respond with RELABEL or REPLAN JSON.`;
+
+  const text = await converse({
+    system: systemPrompt,
+    content: [
+      { text: userText },
+      { image: { format: 'jpeg', source: { bytes: Buffer.from(screenshot, 'base64') } } },
+    ],
+    maxTokens: 1200,
+    temperature: 0.2,
+  });
+
+  const parsed = JSON.parse(stripFences(text));
+
+  const replan = parsed.replan === true && Array.isArray(parsed.steps) && parsed.steps.length > 0;
+  const steps = replan
+    ? parsed.steps.map((s, i) => ({
+        index: typeof s.index === 'number' ? s.index : i + 1,
+        action: ['click', 'type', 'key', 'info'].includes(s.action) ? s.action : 'click',
+        instruction: s.instruction || '',
+        targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
+        elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
+        key: typeof s.key === 'string' ? s.key : null,
+        findDescription: s.findDescription || s.elementDescription || s.instruction || '',
+      }))
+    : [];
+
+  return {
+    replan,
+    visibleLabel: typeof parsed.visibleLabel === 'string' ? parsed.visibleLabel : '',
+    instruction: typeof parsed.instruction === 'string' ? parsed.instruction : '',
+    steps,
+  };
+}
