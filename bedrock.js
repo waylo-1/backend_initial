@@ -336,19 +336,24 @@ Format:
   "steps": [
     {
       "index": 1,
-      "instruction": "Simple English instruction for the user",
-      "findDescription": "English description of the macOS UI element to find (role + label + location hint)"
+      "instruction": "Simple, warm English instruction for the user",
+      "targetLabel": "exact visible text on the element, e.g. File or Bold",
+      "elementDescription": "natural-language description of the element + location"
     }
   ]
 }
 
 Rules:
-- findDescription must be specific: include the element's role (button, menu item, text field),
-  its exact label, and a location hint (e.g. "Bold button in the Home tab toolbar",
-  "Insert menu in the menu bar", "Name text field in the Save dialog")
-- Instructions should be clear and action-oriented: "Click...", "Type...", "Select..."
-- For menu items, describe the full path: "Format > Text > Bold menu item"
-- Maximum 10 steps per guide`.trim();
+- "targetLabel" MUST be the exact visible text on the button or menu item as it
+  appears on screen (e.g. "File", "Export", "Bold", "New Folder"). This is used
+  for on-screen text matching, so it must match the real label exactly.
+- If the element is icon-only (no visible text), set "targetLabel" to "" and
+  describe it precisely in "elementDescription".
+- "elementDescription" includes the element's role and location hint
+  (e.g. "Bold button in the Home tab toolbar", "File menu in the menu bar").
+- "instruction" is clear, warm and action-oriented: "Click...", "Type...".
+- For menu items, describe the full path in elementDescription.
+- Maximum 8 steps. Each step = one click or one action.`.trim();
 }
 
 /**
@@ -415,12 +420,16 @@ async function generateDesktopSteps(task) {
 
   const plan = JSON.parse(stripFences(text));
 
-  // Normalise: ensure each step has an integer index.
+  // Normalise: ensure each step has an integer index and the expected fields.
   if (Array.isArray(plan.steps)) {
     plan.steps = plan.steps.map((s, i) => ({
       index: typeof s.index === 'number' ? s.index : i + 1,
       instruction: s.instruction,
-      findDescription: s.findDescription,
+      targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
+      elementDescription:
+        s.elementDescription || s.findDescription || s.instruction || '',
+      // Keep findDescription for backward compatibility with older clients.
+      findDescription: s.findDescription || s.elementDescription || s.instruction || '',
     }));
   }
 
