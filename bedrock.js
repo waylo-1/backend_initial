@@ -601,6 +601,7 @@ module.exports = {
   generateDesktopSteps,
   recoverDesktopStep,
   detectObject,
+  answerConcept,
 };
 
 /**
@@ -775,4 +776,23 @@ Briefly explain what you see, then provide the JSON.`;
   }
 
   return { found: true, bbox, label: targetLabel };
+}
+
+/**
+ * Mid-session concept Q&A. Plain-text answer for an elderly user, no vision.
+ * @returns {Promise<string>} a short, warm answer.
+ */
+async function answerConcept({ question, appName }) {
+  const app = appName || 'this app';
+  const system = `You are Waylo, a friendly, patient assistant helping an elderly user learn ${app} on a Mac. ` +
+    `Answer the question in 1 to 3 short, simple sentences. Use very plain language, no jargon, no markdown. ` +
+    `If they are asking where something is on screen, tell them you'll show them with a red dot.`;
+
+  const text = await converse({
+    system,
+    content: [{ text: question }],
+    maxTokens: 200,
+    temperature: 0.3,
+  });
+  return text.trim();
 }

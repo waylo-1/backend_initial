@@ -8,7 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject } = require('./bedrock');
+const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept } = require('./bedrock');
 const planCache = require('./planCache');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
@@ -121,6 +121,25 @@ app.use('/vision', visionRouter);
 
 // Vision fallback endpoint for the macOS desktop companion
 app.use('/vision-fallback', visionFallbackRouter);
+
+/**
+ * POST /qa
+ * Mid-session concept question — plain text answer (no vision).
+ * Body: { question, appName }
+ */
+app.post('/qa', async (req, res) => {
+  try {
+    const { question, appName } = req.body || {};
+    if (!question || typeof question !== 'string') {
+      return res.status(400).json({ error: 'question is required' });
+    }
+    const answer = await answerConcept({ question, appName: appName || '' });
+    return res.json({ answer });
+  } catch (error) {
+    console.error('Error in /qa:', error.message);
+    return res.status(500).json({ error: 'qa failed', details: error.message });
+  }
+});
 
 /**
  * POST /nova-vision
