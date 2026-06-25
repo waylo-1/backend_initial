@@ -12,6 +12,10 @@ const {
 
 const REGION = process.env.AWS_REGION || 'us-east-1';
 const MODEL_ID = process.env.BEDROCK_MODEL_ID;
+// Plan generation is simple structured JSON — Nova Micro is ~23x cheaper than
+// Nova Pro and plenty capable. Falls back to the main model id if unset.
+const PLAN_MODEL_ID =
+  process.env.BEDROCK_PLAN_MODEL_ID || 'us.amazon.nova-micro-v1:0';
 
 if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
   console.error('Missing AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in environment variables');
@@ -563,6 +567,7 @@ async function generateEnrichedSteps(task) {
     content: [{ text: `Task: ${task}` }],
     maxTokens: 2000,
     temperature: 0.3,
+    modelId: PLAN_MODEL_ID,
   });
 
   console.log('Bedrock enriched raw response:', text.substring(0, 200));

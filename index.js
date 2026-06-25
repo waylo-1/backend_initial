@@ -9,6 +9,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
 const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject } = require('./bedrock');
+const planCache = require('./planCache');
 const supabase = require('./supabase');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
@@ -70,11 +71,31 @@ app.post('/plan', planLimiter, async (req, res) => {
     const language = detectLanguage(task);
     console.log(`Plan requested: ${task} | Language detected: ${language}`);
 
+    // Serve from the server-side cache when possible — repeat tasks cost $0.
+    const cached = planCache.get(task);
+    if (cached) {
+      console.log(`Plan cache HIT for: ${task}`);
+      return res.json({
+        success: true,
+        appPackage: cached.appPackage,
+        appName: cached.appName,
+        language,
+        steps: cached.steps,
+        totalSteps: cached.steps.length,
+        cached: true
+      });
+    }
+
     // Generate enriched 8-field steps. The richer per-step metadata gives the
     // Android detection layers much more signal to match against, reducing
     // costly vision fallbacks.
     const plan = await generateEnrichedSteps(task);
     console.log(`Bedrock response received, ${plan.steps.length} enriched steps parsed`);
+
+    // Cache for next time (only worth caching a non-empty plan).
+    if (plan.steps.length > 0) {
+      planCache.set(task, '', plan);
+    }
 
     res.json({
       success: true,
