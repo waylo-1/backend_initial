@@ -11,6 +11,7 @@ const { detectLanguage } = require('./langdetect');
 const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept } = require('./bedrock');
 const planCache = require('./planCache');
 const supabase = require('./supabase');
+const semanticPlanCache = require('./semanticPlanCache');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
@@ -62,8 +63,21 @@ app.post('/plan', planLimiter, async (req, res) => {
     // and expects { task, app, steps:[{ index, instruction, findDescription }] }.
     if (platform === 'macos') {
       console.log(`Plan requested (macOS): ${task}`);
+
+      // Semantic cache: a paraphrase of a prior task returns instantly, no Nova call.
+      const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
+      if (cachedPlan) {
+        console.log(`Plan semantic-cache HIT (macOS) for: ${task}`);
+        return res.json({ ...cachedPlan, cached: true });
+      }
+
       const plan = await generateDesktopSteps(task);
       console.log(`Bedrock desktop response received, ${plan.steps?.length || 0} steps parsed`);
+
+      // Store for next time (fire-and-forget; only cache non-empty plans).
+      if (plan.steps && plan.steps.length > 0) {
+        semanticPlanCache.storePlanInCache('macos', task, plan).then(() => {}, () => {});
+      }
       return res.json(plan);
     }
 
