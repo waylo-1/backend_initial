@@ -12,6 +12,7 @@ const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDeskt
 const planCache = require('./planCache');
 const supabase = require('./supabase');
 const semanticPlanCache = require('./semanticPlanCache');
+const stepLabelCache = require('./stepLabelCache');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
@@ -135,6 +136,36 @@ app.use('/vision', visionRouter);
 
 // Vision fallback endpoint for the macOS desktop companion
 app.use('/vision-fallback', visionFallbackRouter);
+
+/**
+ * POST /label/lookup
+ * Returns a previously-cached working AX label for a step, if any.
+ * Body: { appName, stepDescription }
+ */
+app.post('/label/lookup', async (req, res) => {
+  try {
+    const { appName, stepDescription } = req.body || {};
+    if (!appName || !stepDescription) return res.json({ found: false });
+    const label = await stepLabelCache.getLabelFromCache(appName, stepDescription);
+    return res.json(label ? { found: true, axLabel: label } : { found: false });
+  } catch (e) {
+    console.error('Error in /label/lookup:', e.message);
+    return res.json({ found: false });
+  }
+});
+
+/**
+ * POST /label/store
+ * Caches a working AX label for a step (fire-and-forget). 202 immediately.
+ * Body: { appName, stepDescription, axLabel }
+ */
+app.post('/label/store', (req, res) => {
+  const { appName, stepDescription, axLabel } = req.body || {};
+  if (appName && stepDescription && axLabel) {
+    stepLabelCache.storeLabelInCache(appName, stepDescription, axLabel).then(() => {}, () => {});
+  }
+  return res.status(202).json({ accepted: true });
+});
 
 /**
  * POST /qa
