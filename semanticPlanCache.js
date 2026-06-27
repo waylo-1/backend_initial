@@ -1,41 +1,40 @@
 /**
- * Semantic plan cache (Supabase pgvector + Titan embeddings).
+ * Semantic plan cache (AWS RDS Postgres + pgvector + Titan embeddings).
  *
- * Unlike the in-process exact-match cache (planCache.js), this matches
- * paraphrases: "freeze the top row" and "how do I lock the first row" map to
- * nearby vectors and hit the same cached plan. Survives restarts and is shared
- * across instances.
+ * Matches paraphrases: "freeze the top row" and "lock the first row" embed to
+ * nearby vectors and hit the same cached plan. All failures are swallowed — on
+ * error we return null so the caller falls through to live generation.
  *
- * All failures are swallowed — on any error we return null so the caller falls
- * through to live generation.
+ * AWS schema (plan_cache): id BIGSERIAL, task TEXT, platform TEXT,
+ *   steps_json TEXT, embedding vector(1536), created_at.
+ * RPC: match_plan_cache(query_embedding vector, match_threshold float,
+ *   match_count int, platform_filter text)
+ *   -> (id, task, platform, steps_json, similarity)
  */
-const supabase = require('./supabase');
+const db = require('./db');
 const { embedText } = require('./embeddings');
 
 const PLAN_SIMILARITY_THRESHOLD = 0.92;
 
-/** Returns a cached step plan for a semantically-similar task, or null. */
-async function getPlanFromCache(appName, taskText) {
+/** pgvector text literal, e.g. "[0.1,0.2,...]". */
+function toVector(arr) {
+  return `[${arr.join(',')}]`;
+}
+
+/** Returns a cached step plan (parsed object) for a similar task, or null. */
+async function getPlanFromCache(platform, taskText) {
   try {
     const embedding = await embedText(taskText);
-    const { data, error } = await supabase.rpc('match_plan_cache', {
-      query_embedding: embedding,
-      app_name_filter: appName,
-      similarity_threshold: PLAN_SIMILARITY_THRESHOLD,
-      match_count: 1,
-    });
-    if (error || !data || data.length === 0) {
-      if (error) console.error('[semanticPlanCache] rpc error:', error.message);
+    const { rows } = await db.query(
+      'SELECT * FROM match_plan_cache($1::vector, $2, $3, $4)',
+      [toVector(embedding), PLAN_SIMILARITY_THRESHOLD, 1, platform]
+    );
+    if (!rows || rows.length === 0) return null;
+    try {
+      return JSON.parse(rows[0].steps_json);
+    } catch {
       return null;
     }
-    const hit = data[0];
-    // Bump hit stats without blocking.
-    supabase
-      .from('plan_cache')
-      .update({ hit_count: (hit.hit_count || 0) + 1, last_hit_at: new Date().toISOString() })
-      .eq('id', hit.id)
-      .then(() => {}, () => {});
-    return hit.step_plan;
   } catch (e) {
     console.error('[semanticPlanCache] getPlanFromCache:', e.message);
     return null;
@@ -43,16 +42,13 @@ async function getPlanFromCache(appName, taskText) {
 }
 
 /** Stores a generated plan. Non-fatal on error. */
-async function storePlanInCache(appName, taskText, stepPlan) {
+async function storePlanInCache(platform, taskText, stepPlan) {
   try {
     const embedding = await embedText(taskText);
-    const { error } = await supabase.from('plan_cache').insert({
-      app_name: appName,
-      task_text: taskText,
-      task_embedding: embedding,
-      step_plan: stepPlan,
-    });
-    if (error) console.error('[semanticPlanCache] insert error:', error.message);
+    await db.query(
+      'INSERT INTO plan_cache (task, platform, steps_json, embedding) VALUES ($1, $2, $3, $4::vector)',
+      [taskText, platform, JSON.stringify(stepPlan), toVector(embedding)]
+    );
   } catch (e) {
     console.error('[semanticPlanCache] storePlanInCache:', e.message);
   }

@@ -1,6 +1,13 @@
 /**
  * Waylo Backend - Main Express Server
  * AI-powered smartphone guide for elderly users
+ *
+ * Required env vars:
+ *   DATABASE_URL          - AWS RDS/Aurora Postgres connection string (pgvector)
+ *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION  - Bedrock
+ *   BEDROCK_MODEL_ID, BEDROCK_PLAN_MODEL_ID, BEDROCK_VISION_MODEL_ID,
+ *   BEDROCK_EMBED_MODEL_ID                                - Bedrock model ids
+ *   PORT                  - server port (default 3000)
  */
 
 require('dotenv').config();
@@ -10,7 +17,7 @@ const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
 const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept } = require('./bedrock');
 const planCache = require('./planCache');
-const supabase = require('./supabase');
+const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
 const stepLabelCache = require('./stepLabelCache');
 const visionRouter = require('./routes/vision');
@@ -245,60 +252,27 @@ app.use('/failure', failureRouter);
  */
 app.post('/guide', async (req, res) => {
   try {
-    const { steps, taskName, language } = req.body;
+    const { steps, taskName } = req.body;
 
-    // Validation
     if (!steps || !Array.isArray(steps) || steps.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'Steps array is required and must not be empty'
-      });
+      return res.status(400).json({ success: false, error: 'Steps array is required and must not be empty' });
     }
-
     if (!taskName || typeof taskName !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Task name is required'
-      });
+      return res.status(400).json({ success: false, error: 'Task name is required' });
     }
 
-    if (!language || typeof language !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Language is required'
-      });
-    }
-
-    // Generate random 8-character alphanumeric ID
     const id = generateRandomId(8);
-
-    // Calculate expiry date (30 days from now)
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-
-    // Insert into Supabase
-    const { error } = await supabase
-      .from('guides')
-      .insert({
-        id,
-        task_name: taskName,
-        language,
-        steps,
-        expires_at: expiresAt.toISOString()
-      });
-
-    if (error) {
-      throw error;
-    }
+    await db.query(
+      'INSERT INTO guides (id, task, steps_json) VALUES ($1, $2, $3)',
+      [id, taskName, JSON.stringify(steps)]
+    );
 
     console.log(`Guide saved: ${id}`);
-
     res.json({
       success: true,
       id,
       link: `https://waylo.app/g/${id}`
     });
-
   } catch (error) {
     console.error('Error in /guide:', error);
     res.status(500).json({
@@ -325,37 +299,30 @@ app.get('/guide/:id', async (req, res) => {
       });
     }
 
-    // Query Supabase
-    const { data, error } = await supabase
-      .from('guides')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error || !data) {
+    const { rows } = await db.query('SELECT * FROM guides WHERE id = $1', [id]);
+    if (!rows || rows.length === 0) {
       return res.status(404).json({
         success: false,
         error: 'Guide not found'
       });
     }
 
-    // Check if expired
-    const now = new Date();
-    const expiresAt = new Date(data.expires_at);
-
-    if (now > expiresAt) {
-      return res.status(410).json({
-        success: false,
-        error: 'This guide has expired'
-      });
+    const row = rows[0];
+    let steps = [];
+    try {
+      steps = JSON.parse(row.steps_json);
+    } catch (_) {
+      steps = [];
     }
+
+    // Best-effort open counter (column exists in the AWS schema).
+    db.query('UPDATE guides SET opens = opens + 1 WHERE id = $1', [id]).catch(() => {});
 
     res.json({
       success: true,
-      taskName: data.task_name,
-      language: data.language,
-      steps: data.steps,
-      totalSteps: data.steps.length
+      taskName: row.task,
+      steps,
+      totalSteps: steps.length
     });
 
   } catch (error) {
