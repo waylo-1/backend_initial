@@ -612,18 +612,23 @@ module.exports = {
  *   - replans the remaining steps based on what is actually on screen.
  * @returns {Promise<Object>} { visibleLabel, instruction, replan, steps }
  */
-async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, stepIndex, totalSteps }) {
+async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, stepIndex, totalSteps, userMessage }) {
   const systemPrompt = `
 You are Waylo, helping an elderly user complete a task on their Mac. The app
-could not locate the element for the current step on screen. Look carefully at
-the screenshot and help it recover.
+could not locate the element for the current step on screen, OR the user told
+you the guidance was wrong. Look carefully at the screenshot and help recover.
 
 Decide between two responses:
-1. RELABEL — the element IS visible but under a different label. Return its exact
-   visible text so the app can find it.
+1. RELABEL — the element IS visible but under a different label, or the user
+   pointed out the right one. Return its exact visible text so the app can find it.
 2. REPLAN — the screen is not where the app expected (a dialog is open, the user
-   is on a different screen, the previous step changed things). Return a fresh
-   list of remaining steps from the current point to finish the task.
+   is on a different screen, the element genuinely does not exist here, or the
+   user asked for something new). Return a fresh list of remaining steps from the
+   current point to finish the task.
+
+If the user gave feedback (e.g. "that's the wrong button", "this icon doesn't
+exist here", "now also do X"), treat their words as the source of truth and
+correct your guidance accordingly.
 
 Return ONLY valid JSON, no markdown:
 {
@@ -650,6 +655,9 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
     `Stuck on step ${stepIndex} of ${totalSteps}.\n` +
     `Step instruction: ${instruction}\n` +
     `Element we looked for: ${targetLabel || '(no text label)'}\n` +
+    (userMessage && userMessage.trim()
+      ? `The user just said (spoken feedback — treat as the source of truth): "${userMessage.trim()}"\n`
+      : '') +
     `Analyze the screenshot and respond with RELABEL or REPLAN JSON.`;
 
   const text = await converse({
@@ -707,10 +715,12 @@ ${targetLabel}
 The user is trying to: ${stepInstruction}
 
 ## Instructions
-- Analyze the screenshot and find the UI element described above
-- It may be a button, menu item, toolbar icon, checkbox, or any interactive control
-- Fit the bounding box tightly around the element
-- Do not output duplicate bounding boxes
+- Analyze the screenshot and find the ONE UI element described above
+- It may be a button, menu item, toolbar icon, Dock icon, checkbox, or any interactive control
+- If several elements could match, pick the single most likely interactive control the user should click
+- Fit the bounding box tightly around just that element (not its surrounding container or row)
+- Do not output duplicate or overlapping bounding boxes
+- Be conservative: if you are not reasonably confident the element is actually present, return an empty list rather than guessing
 - Coordinates use format [x_min, y_min, x_max, y_max] where:
   * (x_min, y_min) is the top-left corner
   * (x_max, y_max) is the bottom-right corner

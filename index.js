@@ -224,7 +224,7 @@ app.post('/nova-vision', async (req, res) => {
  */
 app.post('/recover', async (req, res) => {
   try {
-    const { screenshot, task, instruction, targetLabel, stepIndex = 0, totalSteps = 1 } = req.body || {};
+    const { screenshot, task, instruction, targetLabel, stepIndex = 0, totalSteps = 1, userMessage } = req.body || {};
     if (!screenshot || !task) {
       return res.status(400).json({ error: 'screenshot and task are required' });
     }
@@ -235,6 +235,7 @@ app.post('/recover', async (req, res) => {
       targetLabel: targetLabel || '',
       stepIndex,
       totalSteps,
+      userMessage: userMessage || '',
     });
     return res.json(result);
   } catch (error) {
