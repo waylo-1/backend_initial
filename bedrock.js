@@ -333,15 +333,23 @@ You are Waylo, an AI guide that helps users learn Mac desktop software.
 Generate a step-by-step guide for the given task.
 Return ONLY valid JSON, no explanation, no markdown.
 
-SOLVE IT THE FASTEST WAY. Always choose the shortest, most direct path to the
-goal — the way an expert Mac user would do it:
+SOLVE IT THE FASTEST WAY, BUT FINISH THE JOB. Choose the shortest path that
+ACTUALLY completes the task end to end — the way an expert Mac user would do it.
+Being direct does NOT mean stopping early: include EVERY step needed to reach the
+final result (open → navigate → perform the action → confirm). Never end the plan
+before the task is truly done.
 - Prefer the Dock, the system menu bar, right-click (Control-click) context
   menus, and keyboard shortcuts over long click-through navigation.
-- Do NOT open an app or window you don't need. Example: to empty the Trash,
-  Control-click the Trash icon in the Dock and choose "Empty Trash" — do NOT
-  open Finder first. To quit an app, use the Dock or Cmd+Q.
-- Skip any step that isn't strictly required to complete the task.
-- Fewer steps is better, as long as it still works.
+- OPEN APPS THE QUICKEST WAY: to open an app or a system area, click its icon in
+  the Dock if it's likely there; otherwise open Spotlight (press Cmd+Space, type
+  the app's name, press Return). Do NOT route through the Apple menu or nested
+  menus to launch something. Example: to open System Settings, click the Settings
+  icon in the Dock, or use Spotlight — do NOT use Apple menu → System Settings.
+- Do NOT add steps that aren't needed, but do NOT skip steps that ARE needed to
+  finish (e.g. confirming a dialog, pressing Enter, clicking the final button).
+- Example: "empty the trash" = Control-click Trash in the Dock → click "Empty
+  Trash" → click "Empty Trash" again in the confirmation dialog. All three steps.
+- Think through the WHOLE flow to the end goal before writing the steps.
 
 Format:
 {
@@ -387,7 +395,9 @@ Rules:
   and a "key" step (press Enter).
 - "elementDescription" includes the element's role and a location hint.
 - "instruction" is clear, warm and action-oriented.
-- Maximum 8 steps. Each step = one click, one type, or one key press.`.trim();
+- Use as many steps as the task genuinely needs to reach the final result (up to
+  12). Do not pad, but do not cut the plan short — the last step should land the
+  user on the completed outcome. Each step = one click, one type, or one key press.`.trim();
 }
 
 /**
@@ -630,10 +640,14 @@ You are Waylo, helping an elderly user complete a task on their Mac. The app
 could not locate the element for the current step on screen, OR the user told
 you the guidance was wrong. Look carefully at the screenshot and help recover.
 
-Decide between two responses:
+Decide between three responses:
 1. RELABEL — the element IS visible but under a different label, or the user
    pointed out the right one. Return its exact visible text so the app can find it.
-2. REPLAN — the screen is not where the app expected (a dialog is open, the user
+2. SCROLL — the element is NOT currently visible, but it would appear if the user
+   scrolls the window/list/page (it's a long settings panel, list, or document).
+   Return scrollDirection ("up"|"down"|"left"|"right") and a warm instruction
+   telling the user to scroll that way to reveal it.
+3. REPLAN — the screen is not where the app expected (a dialog is open, the user
    is on a different screen, the element genuinely does not exist here, or the
    user asked for something new). Return a fresh list of remaining steps from the
    current point to finish the task.
@@ -645,14 +659,24 @@ correct your guidance accordingly.
 Return ONLY valid JSON, no markdown:
 {
   "replan": false,
-  "visibleLabel": "exact visible text of the element to click (empty if replanning)",
+  "visibleLabel": "exact visible text of the element to click (empty otherwise)",
+  "scrollDirection": "",
   "instruction": "updated warm instruction for this step",
   "steps": []
 }
-OR
+OR (scroll)
+{
+  "replan": false,
+  "visibleLabel": "",
+  "scrollDirection": "down",
+  "instruction": "Scroll down to find the X option, then I'll point to it.",
+  "steps": []
+}
+OR (replan)
 {
   "replan": true,
   "visibleLabel": "",
+  "scrollDirection": "",
   "instruction": "",
   "steps": [
     { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "key": null }
@@ -670,7 +694,7 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
     (userMessage && userMessage.trim()
       ? `The user just said (spoken feedback — treat as the source of truth): "${userMessage.trim()}"\n`
       : '') +
-    `Analyze the screenshot and respond with RELABEL or REPLAN JSON.`;
+    `Analyze the screenshot and respond with RELABEL, SCROLL or REPLAN JSON.`;
 
   const text = await converse({
     system: systemPrompt,
@@ -702,6 +726,7 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
     replan,
     visibleLabel: typeof parsed.visibleLabel === 'string' ? parsed.visibleLabel : '',
     instruction: typeof parsed.instruction === 'string' ? parsed.instruction : '',
+    scrollDirection: ['up', 'down', 'left', 'right'].includes(parsed.scrollDirection) ? parsed.scrollDirection : '',
     steps,
   };
 }

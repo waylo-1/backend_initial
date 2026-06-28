@@ -23,6 +23,7 @@ const stepLabelCache = require('./stepLabelCache');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
+const yoloDetectRoute = require('./routes/yolo-detect');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -246,6 +247,9 @@ app.post('/recover', async (req, res) => {
 
 // Detection failure logging endpoint (stores misses for future YOLO training)
 app.use('/failure', failureRouter);
+
+// Layer 2.5: dual-model YOLO detection (proxies to the Python microservice)
+app.use('/', yoloDetectRoute);
 
 /**
  * POST /guide
