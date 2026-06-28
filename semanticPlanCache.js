@@ -16,6 +16,18 @@ const { embedText } = require('./embeddings');
 
 const PLAN_SIMILARITY_THRESHOLD = 0.92;
 
+/**
+ * Bump this whenever the desktop planning prompt changes meaningfully. It is
+ * folded into the embedding input so plans cached under an OLD prompt version no
+ * longer match new lookups — effectively invalidating stale plans (e.g. the old
+ * "Apple menu → System Preferences" route) without touching the database.
+ */
+const PLAN_PROMPT_VERSION = 'v3-direct-launch';
+
+function embedInput(taskText) {
+  return `[${PLAN_PROMPT_VERSION}] ${taskText}`;
+}
+
 /** pgvector text literal, e.g. "[0.1,0.2,...]". */
 function toVector(arr) {
   return `[${arr.join(',')}]`;
@@ -24,7 +36,7 @@ function toVector(arr) {
 /** Returns a cached step plan (parsed object) for a similar task, or null. */
 async function getPlanFromCache(platform, taskText) {
   try {
-    const embedding = await embedText(taskText);
+    const embedding = await embedText(embedInput(taskText));
     const { rows } = await db.query(
       'SELECT * FROM match_plan_cache($1::vector, $2, $3, $4)',
       [toVector(embedding), PLAN_SIMILARITY_THRESHOLD, 1, platform]
@@ -44,7 +56,7 @@ async function getPlanFromCache(platform, taskText) {
 /** Stores a generated plan. Non-fatal on error. */
 async function storePlanInCache(platform, taskText, stepPlan) {
   try {
-    const embedding = await embedText(taskText);
+    const embedding = await embedText(embedInput(taskText));
     await db.query(
       'INSERT INTO plan_cache (task, platform, steps_json, embedding) VALUES ($1, $2, $3, $4::vector)',
       [taskText, platform, JSON.stringify(stepPlan), toVector(embedding)]

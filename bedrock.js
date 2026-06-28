@@ -345,6 +345,10 @@ before the task is truly done.
   the app's name, press Return). Do NOT route through the Apple menu or nested
   menus to launch something. Example: to open System Settings, click the Settings
   icon in the Dock, or use Spotlight — do NOT use Apple menu → System Settings.
+- USE CURRENT macOS NAMES. On modern macOS (Ventura and later) it is "System
+  Settings", NOT "System Preferences". Use the names exactly as they appear on a
+  recent macOS version. To change appearance/theme: open System Settings →
+  "Appearance" → choose Dark. Do not invent old menu paths.
 - Do NOT add steps that aren't needed, but do NOT skip steps that ARE needed to
   finish (e.g. confirming a dialog, pressing Enter, clicking the final button).
 - Example: "empty the trash" = Control-click Trash in the Dock → click "Empty
