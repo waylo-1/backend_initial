@@ -1,0 +1,15 @@
+# Railway/Nixpacks build config for the YOLO microservice.
+#
+# ultralytics hard-depends on the full `opencv-python`, which pip installs
+# transitively regardless of `opencv-python-headless`. Its `cv2` needs these
+# X/GL runtime libraries at import time — install them so the service boots on
+# the headless container (fixes the libGL.so.1 / libxcb.so.1 errors).
+[phases.setup]
+aptPkgs = [
+  "libgl1",
+  "libglib2.0-0",
+  "libxcb1",
+  "libxext6",
+  "libsm6",
+  "libxrender1",
+]
