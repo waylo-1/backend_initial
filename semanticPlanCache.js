@@ -88,4 +88,21 @@ async function learnPlan(platform, taskText, stepPlan) {
   }
 }
 
-module.exports = { getPlanFromCache, storePlanInCache, learnPlan };
+/**
+ * Forgets a plan the user marked WRONG: deletes cached plans for this task so
+ * the bad path is never reused (the next run regenerates fresh).
+ */
+async function forgetPlan(platform, taskText) {
+  try {
+    const embedding = await embedText(taskText);
+    const { rowCount } = await db.query(
+      'DELETE FROM plan_cache WHERE platform = $1 AND 1 - (embedding <=> $2::vector) > 0.90',
+      [versioned(platform), toVector(embedding)]
+    );
+    console.log(`[semanticPlanCache] forgot ${rowCount} plan(s) for "${taskText}"`);
+  } catch (e) {
+    console.error('[semanticPlanCache] forgetPlan:', e.message);
+  }
+}
+
+module.exports = { getPlanFromCache, storePlanInCache, learnPlan, forgetPlan };

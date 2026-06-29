@@ -285,6 +285,19 @@ app.post('/plan/learn', async (req, res) => {
   }
 });
 
+/**
+ * POST /plan/forget
+ * Marks a plan WRONG: removes it from the cache so it isn't reused.
+ * Body: { task, platform }
+ */
+app.post('/plan/forget', (req, res) => {
+  const { task, platform } = req.body || {};
+  if (task && typeof task === 'string' && (platform || 'macos') === 'macos') {
+    semanticPlanCache.forgetPlan('macos', task).then(() => {}, () => {});
+  }
+  return res.status(202).json({ accepted: true });
+});
+
 // Layer 2.5: dual-model YOLO detection (proxies to the Python microservice)
 app.use('/', yoloDetectRoute);
 
