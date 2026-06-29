@@ -41,6 +41,7 @@ function step(i, action, instruction, opts = {}) {
     key: opts.key || null,
     autoAdvanceSeconds: opts.autoAdvanceSeconds || 0,
     silent: opts.silent || false,
+    advanceOnAnyClick: opts.advanceOnAnyClick || false,
   };
 }
 
@@ -284,22 +285,17 @@ const DEMOS = [
           key: 'return',
           elementDescription: 'submit the Google search',
         }),
-        step(5, 'click', 'Click the Vercel link.', {
-          targetLabel: 'Vercel',
-          elementDescription: "the large PURPLE 'Vercel' result-title link — the clickable heading BELOW the white triangle logo and the https://vercel.com URL. NOT the small grey 'Vercel' site name next to the logo, and NOT the word in the search box.",
-          controlKind: 'link',
-          anchorText: 'vercel.com',
-          anchorPosition: 'below',
+        step(5, 'info', 'Open Vercel — click the Vercel result.', {
+          advanceOnAnyClick: true,
+          elementDescription: 'the Vercel search result link',
         }),
         step(6, 'click', "Click 'Add New'.", {
           targetLabel: 'Add New',
           elementDescription: 'the white "Add New…" button on the Vercel dashboard (top-right area)',
-          controlKind: 'button',
         }),
         step(7, 'click', "Click 'Project'.", {
           targetLabel: 'Project',
-          elementDescription: 'the Project item in the Add New dropdown menu',
-          controlKind: 'menuItem',
+          elementDescription: 'the Project item in the Add New dropdown menu (top-right)',
         }),
         step(8, 'click', 'Click the Git repository field.', {
           targetLabel: 'Enter a Git repository',
