@@ -19,6 +19,7 @@ const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDeskt
 const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
+const demoPlans = require('./demoPlans');
 const stepLabelCache = require('./stepLabelCache');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
@@ -72,6 +73,14 @@ app.post('/plan', planLimiter, async (req, res) => {
     // and expects { task, app, steps:[{ index, instruction, findDescription }] }.
     if (platform === 'macos') {
       console.log(`Plan requested (macOS): ${task}`);
+
+      // Hardcoded demo plans: deterministic, planner-free, cache-free. Used for
+      // demo videos so a known task always produces the exact same vetted steps.
+      const demoPlan = demoPlans.getDemoPlan(task);
+      if (demoPlan) {
+        console.log(`Plan DEMO HIT (macOS) for: ${task}`);
+        return res.json({ ...demoPlan, demo: true });
+      }
 
       // Semantic cache: a paraphrase of a prior task returns instantly, no Nova call.
       const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
