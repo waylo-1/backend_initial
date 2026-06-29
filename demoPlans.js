@@ -214,6 +214,8 @@ const DEMOS = [
           targetLabel: 'Add Media',
           elementDescription: 'the Add Media button — the + / attach icon at the left end of the message compose bar near the bottom of the chat, just left of the text input field (NOT at the far-left edge of the screen)',
           controlKind: 'button',
+          anchorText: 'Type a message',
+          anchorPosition: 'left',
         }),
         step(4, 'click', 'Click "Photos & Videos".', {
           targetLabel: 'Photos & Videos',
@@ -242,6 +244,8 @@ const DEMOS = [
           targetLabel: 'Send',
           elementDescription: 'the Send button — an arrow inside a green circle at the right end of the message compose bar (about three-quarters of the way down the window), to the right of the text input',
           controlKind: 'button',
+          anchorText: 'Add a caption',
+          anchorPosition: 'right',
         }),
       ],
     },
