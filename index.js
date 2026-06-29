@@ -248,6 +248,43 @@ app.post('/recover', async (req, res) => {
 // Detection failure logging endpoint (stores misses for future YOLO training)
 app.use('/failure', failureRouter);
 
+/**
+ * POST /plan/learn
+ * Remembers a CORRECTED plan after a guide completed whose steps were changed
+ * mid-run. Keyed by the original task text, so the same task is right next time.
+ * Body: { task, platform, steps:[...] }
+ */
+app.post('/plan/learn', async (req, res) => {
+  try {
+    const { task, platform, steps } = req.body || {};
+    if (!task || typeof task !== 'string' || !Array.isArray(steps) || steps.length === 0) {
+      return res.status(400).json({ accepted: false, error: 'task and non-empty steps are required' });
+    }
+    if ((platform || 'macos') !== 'macos') {
+      return res.status(202).json({ accepted: false }); // only desktop plans are cached this way
+    }
+    const REGIONS = ['menuBar', 'ribbon', 'dialog', 'sidebar', 'spreadsheet', 'statusBar', 'fullScreen'];
+    const normalized = steps.map((s, i) => ({
+      index: typeof s.index === 'number' ? s.index : i + 1,
+      action: ['click', 'type', 'key', 'info'].includes(s.action) ? s.action : 'click',
+      instruction: typeof s.instruction === 'string' ? s.instruction : '',
+      targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
+      elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
+      screenRegion: REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
+      targetType: s.targetType === 'icon' ? 'icon' : 'text',
+      key: typeof s.key === 'string' ? s.key : null,
+      findDescription: s.findDescription || s.elementDescription || s.instruction || '',
+    }));
+    const plan = { task, app: 'Unknown', steps: normalized };
+    // Fire-and-forget so the client isn't blocked.
+    semanticPlanCache.learnPlan('macos', task, plan).then(() => {}, () => {});
+    return res.status(202).json({ accepted: true });
+  } catch (error) {
+    console.error('Error in /plan/learn:', error.message);
+    return res.status(500).json({ accepted: false, error: error.message });
+  }
+});
+
 // Layer 2.5: dual-model YOLO detection (proxies to the Python microservice)
 app.use('/', yoloDetectRoute);
 

@@ -62,4 +62,30 @@ async function storePlanInCache(platform, taskText, stepPlan) {
   }
 }
 
-module.exports = { getPlanFromCache, storePlanInCache };
+/**
+ * Learns a CORRECTED plan: removes any near-duplicate cached plans for this task
+ * (so the stale/wrong one can't win) and inserts the corrected one. Called after
+ * a guide completes whose plan was changed mid-run — the system remembers the
+ * fix so the same task is right next time, with no prompt edit or redeploy.
+ */
+async function learnPlan(platform, taskText, stepPlan) {
+  try {
+    const embedding = await embedText(taskText);
+    const vec = toVector(embedding);
+    const plat = versioned(platform);
+    // Drop stale near-identical plans for this task (cosine sim > 0.95).
+    await db.query(
+      'DELETE FROM plan_cache WHERE platform = $1 AND 1 - (embedding <=> $2::vector) > 0.95',
+      [plat, vec]
+    );
+    await db.query(
+      'INSERT INTO plan_cache (task, platform, steps_json, embedding) VALUES ($1, $2, $3, $4::vector)',
+      [taskText, plat, JSON.stringify(stepPlan), vec]
+    );
+    console.log(`[semanticPlanCache] learned corrected plan for "${taskText}"`);
+  } catch (e) {
+    console.error('[semanticPlanCache] learnPlan:', e.message);
+  }
+}
+
+module.exports = { getPlanFromCache, storePlanInCache, learnPlan };
