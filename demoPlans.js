@@ -265,59 +265,61 @@ const DEMOS = [
       task: 'Deploying Next.js frontend on Vercel',
       app: 'Google Chrome',
       steps: [
-        step(1, 'click', 'Click the Google Chrome icon in the Dock to open it.', {
+        step(1, 'click', 'Open Google Chrome from the Dock.', {
           targetLabel: 'Google Chrome',
           elementDescription: 'Google Chrome app icon in the Dock',
           targetType: 'icon',
           controlKind: 'button',
         }),
-        step(2, 'click', "Click the search bar (where it says 'Ask Google').", {
+        step(2, 'click', 'Click the search bar.', {
           targetLabel: 'Ask Google',
           elementDescription: "the Google search bar in the center of the page, where the placeholder text 'Ask Google' is shown",
           controlKind: 'field',
         }),
-        step(3, 'type', "Type 'vercel' into the search bar.", {
+        step(3, 'type', "Type 'vercel'.", {
           key: 'vercel',
           elementDescription: 'the focused Google search bar',
         }),
-        step(4, 'key', 'Press Return to search.', {
+        step(4, 'key', 'Press Return.', {
           key: 'return',
           elementDescription: 'submit the Google search',
         }),
-        step(5, 'click', "Click the first result labeled 'Vercel' (below the white triangle logo).", {
+        step(5, 'click', 'Click the Vercel link.', {
           targetLabel: 'Vercel',
-          elementDescription: 'the first Google search result titled Vercel, shown below the white triangular Vercel logo',
+          elementDescription: "the large PURPLE 'Vercel' result-title link — the clickable heading BELOW the white triangle logo and the https://vercel.com URL. NOT the small grey 'Vercel' site name next to the logo, and NOT the word in the search box.",
           controlKind: 'link',
+          anchorText: 'vercel.com',
+          anchorPosition: 'below',
         }),
-        step(6, 'click', "Click the 'Add New' button.", {
+        step(6, 'click', "Click 'Add New'.", {
           targetLabel: 'Add New',
           elementDescription: 'the white "Add New…" button on the Vercel dashboard (top-right area)',
           controlKind: 'button',
         }),
-        step(7, 'click', "Choose 'Project' from the dropdown menu.", {
+        step(7, 'click', "Click 'Project'.", {
           targetLabel: 'Project',
           elementDescription: 'the Project item in the Add New dropdown menu',
           controlKind: 'menuItem',
         }),
-        step(8, 'click', "Click the field where it says 'Enter a Git repository'.", {
+        step(8, 'click', 'Click the Git repository field.', {
           targetLabel: 'Enter a Git repository',
           elementDescription: "the text input field with the placeholder 'Enter a Git repository' (for importing a repo by URL)",
           controlKind: 'field',
         }),
-        step(9, 'key', 'Press Command and V to paste the repository URL.', {
+        step(9, 'key', 'Paste the URL — press Command and V.', {
           key: 'v',
           elementDescription: 'paste the copied Git repository URL into the field',
         }),
-        step(10, 'key', 'Press Return to load the repository.', {
+        step(10, 'key', 'Press Return.', {
           key: 'return',
           elementDescription: 'confirm the pasted repository URL',
         }),
-        step(11, 'info', 'Give Vercel a moment to load the project settings…', {
+        step(11, 'info', 'One moment…', {
           autoAdvanceSeconds: 4,
           silent: true,
           elementDescription: 'Vercel is fetching the repository and preparing the configure screen',
         }),
-        step(12, 'click', "Click the big white 'Deploy' button to deploy your project.", {
+        step(12, 'click', "Click 'Deploy'.", {
           targetLabel: 'Deploy',
           elementDescription: 'the large white Deploy button on the Vercel configure-project screen',
           controlKind: 'button',
