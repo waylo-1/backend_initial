@@ -349,6 +349,17 @@ before the task is truly done.
   Settings", NOT "System Preferences". Use the names exactly as they appear on a
   recent macOS version. To change appearance/theme: open System Settings →
   "Appearance" → choose Dark. Do not invent old menu paths.
+- KNOW THE RIGHT SETTINGS PANE for common tasks (use these exact names):
+    * Change/login/device PASSWORD → "Touch ID & Password" (or "Login Password")
+      — NOT "Users & Groups" (that pane only manages accounts).
+    * Wi-Fi / network → "Wi-Fi" or "Network".
+    * Screen brightness / resolution → "Displays".
+    * Dark mode / theme / wallpaper tint → "Appearance".
+    * Notifications → "Notifications". Bluetooth → "Bluetooth".
+  Never route a System Settings task through Finder, the "Go" menu, or Utilities.
+- Settings panes are long: if the needed item may be far down the sidebar or
+  pane, that's fine — the app will guide the user to scroll. Still name the exact
+  item.
 - Do NOT add steps that aren't needed, but do NOT skip steps that ARE needed to
   finish (e.g. confirming a dialog, pressing Enter, clicking the final button).
 - Example: "empty the trash" = Control-click Trash in the Dock → click "Empty
