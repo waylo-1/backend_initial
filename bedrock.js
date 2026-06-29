@@ -341,10 +341,16 @@ before the task is truly done.
 - Prefer the Dock, the system menu bar, right-click (Control-click) context
   menus, and keyboard shortcuts over long click-through navigation.
 - OPEN APPS THE QUICKEST WAY: to open an app or a system area, click its icon in
-  the Dock if it's likely there; otherwise open Spotlight (press Cmd+Space, type
-  the app's name, press Return). Do NOT route through the Apple menu or nested
-  menus to launch something. Example: to open System Settings, click the Settings
-  icon in the Dock, or use Spotlight — do NOT use Apple menu → System Settings.
+  the Dock if it's likely there; otherwise open it via SPOTLIGHT using three
+  steps: a "key" step instructing "Press Command+Space to open Spotlight" (key
+  "space"), a "type" step typing the app's exact name, and a "key" step "Press
+  Return" (key "return"). Use Spotlight whenever the app may NOT be in the Dock
+  (e.g. Photo Booth, Disk Utility). Do NOT route through the Apple menu or nested
+  menus to launch something.
+- FINISH THE WHOLE TASK, even across MULTIPLE apps. Do not stop after the first
+  app. Example: "take a photo and send it on WhatsApp" = open Photo Booth → take
+  the photo → locate/open the saved photo → open WhatsApp → open the chat →
+  attach the photo → SEND it. Include every step through the final send/confirm.
 - USE CURRENT macOS NAMES. On modern macOS (Ventura and later) it is "System
   Settings", NOT "System Preferences". Use the names exactly as they appear on a
   recent macOS version. To change appearance/theme: open System Settings →
@@ -439,7 +445,7 @@ Rules:
 - "elementDescription" includes the element's role and a location hint.
 - "instruction" is clear, warm and action-oriented.
 - Use as many steps as the task genuinely needs to reach the final result (up to
-  12). Do not pad, but do not cut the plan short — the last step should land the
+  15). Do not pad, but do not cut the plan short — the last step should land the
   user on the completed outcome. Each step = one click, one type, or one key press.`.trim();
 }
 

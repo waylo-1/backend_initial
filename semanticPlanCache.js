@@ -21,7 +21,7 @@ const PLAN_SIMILARITY_THRESHOLD = 0.92;
  * stop matching. NOTE: we do NOT fold the version into the embedding text — a
  * short prefix barely moves a Titan vector, so stale plans would still match.
  */
-const PLAN_PROMPT_VERSION = 'v6';
+const PLAN_PROMPT_VERSION = 'v7';
 const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSION}`;
 
 /** pgvector text literal, e.g. "[0.1,0.2,...]". */
