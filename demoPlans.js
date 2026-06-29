@@ -40,6 +40,7 @@ function step(i, action, instruction, opts = {}) {
     anchorPosition: opts.anchorPosition || '',
     key: opts.key || null,
     autoAdvanceSeconds: opts.autoAdvanceSeconds || 0,
+    silent: opts.silent || false,
   };
 }
 
@@ -140,8 +141,9 @@ const DEMOS = [
           elementDescription: 'the Take Photo button — the round red/silver camera shutter button at the center-bottom of the Photo Booth window',
           controlKind: 'button',
         }),
-        step(5, 'info', 'Smile! Photo Booth counts down 3, 2, 1 and snaps the photo.', {
+        step(5, 'info', 'Hold still — Photo Booth is taking the photo…', {
           autoAdvanceSeconds: 4,
+          silent: true,
           elementDescription: 'Photo Booth countdown before the photo is captured',
         }),
         step(6, 'click', 'Right-click the photo you just took (the newest, rightmost thumbnail in the bottom strip).', {
@@ -225,9 +227,10 @@ const DEMOS = [
           controlKind: 'row',
           screenRegion: 'sidebar',
         }),
-        step(6, 'click', 'Select the photo named "photo".', {
+        step(6, 'click', 'Select the photo named "photo" inside the file picker.', {
           targetLabel: FILE_LABEL,
-          elementDescription: 'the file named photo that you saved to the Desktop',
+          elementDescription: 'the file named photo shown inside the WhatsApp file picker window (not the Desktop behind it)',
+          screenRegion: 'dialog',
         }),
         step(7, 'click', 'Click the "Open" button.', {
           targetLabel: 'Open',
