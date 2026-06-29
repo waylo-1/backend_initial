@@ -207,14 +207,13 @@ const DEMOS = [
           controlKind: 'button',
         }),
         step(2, 'info', "Open any chat you want to send the photo to — I'll continue in a moment.", {
-          autoAdvanceSeconds: 2,
+          autoAdvanceSeconds: 3,
           elementDescription: 'pick a conversation in the WhatsApp chat list',
         }),
         step(3, 'click', 'Click the "+" attach button (Add Media) next to the message box.', {
           targetLabel: 'Add Media',
-          elementDescription: 'the Add Media button (the + / attach button) at the bottom-left of the message input bar',
+          elementDescription: 'the Add Media button — the + / attach icon at the left end of the message compose bar near the bottom of the chat, just left of the text input field (NOT at the far-left edge of the screen)',
           controlKind: 'button',
-          screenRegion: 'statusBar',
         }),
         step(4, 'click', 'Click "Photos & Videos".', {
           targetLabel: 'Photos & Videos',
@@ -239,12 +238,10 @@ const DEMOS = [
           anchorPosition: 'right',
           screenRegion: 'dialog',
         }),
-        step(8, 'click', 'Click the send button (the arrow at the bottom-right) to send the photo.', {
-          elementDescription: 'a dark/black arrow icon with a green circular outline at the bottom-right corner of the WhatsApp window',
-          targetType: 'icon',
+        step(8, 'click', 'Click the send button (the green arrow at the right of the message box) to send the photo.', {
+          targetLabel: 'Send',
+          elementDescription: 'the Send button — an arrow inside a green circle at the right end of the message compose bar (about three-quarters of the way down the window), to the right of the text input',
           controlKind: 'button',
-          anchorPosition: 'right',
-          screenRegion: 'statusBar',
         }),
       ],
     },
