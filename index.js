@@ -15,7 +15,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept } = require('./bedrock');
+const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen } = require('./bedrock');
 const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
@@ -191,6 +191,26 @@ app.post('/qa', async (req, res) => {
   } catch (error) {
     console.error('Error in /qa:', error.message);
     return res.status(500).json({ error: 'qa failed', details: error.message });
+  }
+});
+
+/**
+ * POST /ask-screen
+ * Vision Q&A — answers a free-form question about what's on the user's screen,
+ * using a screenshot (for learning). No pointer, just an explanation.
+ * Body: { question, screenshot, appName }
+ */
+app.post('/ask-screen', async (req, res) => {
+  try {
+    const { question, screenshot, appName } = req.body || {};
+    if (!question || !screenshot) {
+      return res.status(400).json({ error: 'question and screenshot are required' });
+    }
+    const answer = await answerWithScreen({ question, screenshot, appName: appName || '' });
+    return res.json({ answer });
+  } catch (error) {
+    console.error('Error in /ask-screen:', error.message);
+    return res.status(500).json({ error: 'ask-screen failed', details: error.message });
   }
 });
 

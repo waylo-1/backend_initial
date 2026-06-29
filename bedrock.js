@@ -671,6 +671,7 @@ module.exports = {
   recoverDesktopStep,
   detectObject,
   answerConcept,
+  answerWithScreen,
 };
 
 /**
@@ -897,6 +898,32 @@ async function answerConcept({ question, appName }) {
     system,
     content: [{ text: question }],
     maxTokens: 200,
+    temperature: 0.3,
+  });
+  return text.trim();
+}
+
+/**
+ * Vision Q&A: answers a free-form question about WHAT IS ON SCREEN using a
+ * screenshot (Nova Pro vision). For learning — no pointer, just an explanation.
+ * @returns {Promise<string>} a short, plain-language answer.
+ */
+async function answerWithScreen({ question, screenshot, appName }) {
+  const app = appName && appName.trim() ? appName : 'this app';
+  const system =
+    `You are Waylo, a friendly, patient tutor helping someone learn ${app} on a Mac. ` +
+    `Look carefully at the screenshot and answer the user's question using what is ` +
+    `actually visible on their screen. Be specific and refer to what you see. ` +
+    `Reply in 1 to 4 short, simple sentences. Plain language, no jargon, no markdown. ` +
+    `If the screen doesn't contain the answer, say so briefly and suggest what to do.`;
+
+  const text = await converse({
+    content: [
+      { text: `Question: ${question}` },
+      { image: { format: 'jpeg', source: { bytes: Buffer.from(screenshot, 'base64') } } },
+    ],
+    system,
+    maxTokens: 400,
     temperature: 0.3,
   });
   return text.trim();
