@@ -100,6 +100,12 @@ const DEMOS = [
   {
     triggers: ['photo booth', 'photobooth', 'take a photo', 'take a picture', 'take a selfie',
                'send a photo', 'send the photo', 'send a picture', 'photo to whatsapp', 'picture to whatsapp'],
+    // Also match natural phrasing like "click photo and send it to whatsapp":
+    // (a photo/picture word) AND (a whatsapp word).
+    all: [
+      ['photo', 'picture', 'pic', 'selfie', 'image', 'snap', 'camera'],
+      ['whatsapp', 'whats app', 'whatsap', 'wa'],
+    ],
     plan: {
       task: 'Take a photo in Photo Booth and send it on WhatsApp',
       app: 'Photo Booth',
@@ -174,9 +180,9 @@ const DEMOS = [
           autoAdvanceSeconds: 2,
           elementDescription: 'pick a conversation in the WhatsApp chat list',
         }),
-        step(14, 'click', 'Click the "+" attach button next to the message box.', {
-          elementDescription: 'the plus / attach button at the bottom-left of the message input bar',
-          targetType: 'icon',
+        step(14, 'click', 'Click the "+" attach button (Add Media) next to the message box.', {
+          targetLabel: 'Add Media',
+          elementDescription: 'the Add Media button (the + / attach button) at the bottom-left of the message input bar',
           controlKind: 'button',
           screenRegion: 'statusBar',
         }),
@@ -203,8 +209,8 @@ const DEMOS = [
           screenRegion: 'dialog',
         }),
         step(19, 'click', 'Click the Send button to send the photo.', {
-          elementDescription: 'the send button (paper plane / arrow) next to the message box',
-          targetType: 'icon',
+          targetLabel: 'Send',
+          elementDescription: 'the Send button (paper plane / arrow) next to the message box',
           controlKind: 'button',
           screenRegion: 'statusBar',
         }),
@@ -215,12 +221,18 @@ const DEMOS = [
 
 /**
  * Returns a deep-cloned hardcoded plan if the task matches a demo, else null.
+ * A demo matches if EITHER any `triggers` substring is present, OR every group
+ * in `all` has at least one matching keyword (AND-of-ORs).
  */
 function getDemoPlan(task) {
   const n = normalize(task);
   if (!n) return null;
   for (const demo of DEMOS) {
-    if (demo.triggers.some((t) => n.includes(t))) {
+    const hitTrigger = (demo.triggers || []).some((t) => n.includes(t));
+    const hitAll = Array.isArray(demo.all)
+      && demo.all.length > 0
+      && demo.all.every((group) => group.some((k) => n.includes(k)));
+    if (hitTrigger || hitAll) {
       return JSON.parse(JSON.stringify(demo.plan));
     }
   }
