@@ -394,6 +394,15 @@ Format:
 }
 
 Rules:
+- A keyboard shortcut is ALWAYS a "key" step: set "action":"key", put the key in
+  "key" ("return"/"tab"/"escape"/"space"), and leave "targetLabel" "". NEVER make
+  a shortcut a "click" step, and NEVER put "Press …" text in "targetLabel".
+  (Cmd+Space for Spotlight → action "key", key "space", instruction "Press
+  Command and Space to open Spotlight".)
+- ONLY reference UI elements you are confident actually exist. Do NOT invent
+  buttons. If unsure of an app's exact controls, use the menu bar (File, Edit,
+  Share…) or a reliable keyboard shortcut instead. Many apps auto-save or have no
+  "Save" button (e.g. Photo Booth keeps photos automatically) — don't invent one.
 - "action" classifies the step. Use exactly one of:
     "click" — the user clicks a UI element (a button, menu, icon, field).
     "type"  — the user types text (e.g. a file name). No element to click.
