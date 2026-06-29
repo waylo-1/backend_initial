@@ -367,6 +367,7 @@ Format:
       "targetLabel": "the COMPLETE exact visible text on the element, e.g. Empty Bin",
       "elementDescription": "natural-language description of the element + location",
       "screenRegion": "ribbon",
+      "targetType": "text",
       "key": null
     }
   ]
@@ -394,6 +395,17 @@ Rules:
   is icon-only (no visible text), set "targetLabel" to "" and describe it
   precisely in "elementDescription".
 - For "type", "key" and "info" steps, set "targetLabel" to "".
+- "targetType" tells the app which detector to use. Use exactly one of:
+    "text" — the target shows readable WORDS (a button, menu item, link, label,
+             checkbox with text). Most targets are "text". The app finds these
+             with the accessibility tree + on-screen text reading.
+    "icon" — the target is a graphical ICON / logo / glyph with NO visible text
+             (a Dock app icon, a toolbar symbol like the share or gear icon, a
+             company logo). The app finds these with icon detection (YOLO) + AI
+             vision. Still put the element's NAME in "targetLabel" if it has one
+             (e.g. a Dock icon's app name "System Settings", or its tooltip), and
+             ALWAYS describe the icon's shape/color/symbol/location in
+             "elementDescription".
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
@@ -479,6 +491,7 @@ async function generateDesktopSteps(task) {
       elementDescription:
         s.elementDescription || s.findDescription || s.instruction || '',
       screenRegion: REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
+      targetType: s.targetType === 'icon' ? 'icon' : 'text',
       key: typeof s.key === 'string' ? s.key : null,
       // Keep findDescription for backward compatibility with older clients.
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
@@ -683,7 +696,7 @@ OR (replan)
   "scrollDirection": "",
   "instruction": "",
   "steps": [
-    { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "key": null }
+    { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "screenRegion": "fullScreen", "targetType": "text", "key": null }
   ]
 }
 
@@ -721,6 +734,7 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
         targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
         elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
         screenRegion: ['menuBar', 'ribbon', 'dialog', 'sidebar', 'spreadsheet', 'statusBar', 'fullScreen'].includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
+        targetType: s.targetType === 'icon' ? 'icon' : 'text',
         key: typeof s.key === 'string' ? s.key : null,
         findDescription: s.findDescription || s.elementDescription || s.instruction || '',
       }))

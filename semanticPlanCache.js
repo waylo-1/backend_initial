@@ -22,7 +22,7 @@ const PLAN_SIMILARITY_THRESHOLD = 0.92;
  * longer match new lookups — effectively invalidating stale plans (e.g. the old
  * "Apple menu → System Preferences" route) without touching the database.
  */
-const PLAN_PROMPT_VERSION = 'v3-direct-launch';
+const PLAN_PROMPT_VERSION = 'v4-target-type';
 
 function embedInput(taskText) {
   return `[${PLAN_PROMPT_VERSION}] ${taskText}`;
