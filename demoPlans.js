@@ -36,6 +36,7 @@ function step(i, action, instruction, opts = {}) {
     anchorText: opts.anchorText || '',
     anchorPosition: opts.anchorPosition || '',
     key: opts.key || null,
+    autoAdvanceSeconds: opts.autoAdvanceSeconds || 0,
   };
 }
 
@@ -97,11 +98,13 @@ const DEMOS = [
     },
   },
   {
-    triggers: ['photo booth', 'photobooth', 'take a photo', 'take a picture', 'take a selfie'],
+    triggers: ['photo booth', 'photobooth', 'take a photo', 'take a picture', 'take a selfie',
+               'send a photo', 'send the photo', 'send a picture', 'photo to whatsapp', 'picture to whatsapp'],
     plan: {
-      task: 'Open Photo Booth and take a photo',
+      task: 'Take a photo in Photo Booth and send it on WhatsApp',
       app: 'Photo Booth',
       steps: [
+        // --- Open Photo Booth via Spotlight ---
         step(1, 'key', 'Press Command and Space to open Spotlight search.', {
           key: 'space',
           elementDescription: 'Spotlight search opened with Command + Space',
@@ -114,8 +117,93 @@ const DEMOS = [
           key: 'return',
           elementDescription: 'Open the top Spotlight result',
         }),
+        // --- Take the photo ---
         step(4, 'click', 'Click the red camera button to take a photo.', {
           elementDescription: 'red camera shutter button at the bottom center of the Photo Booth window',
+          targetType: 'icon',
+          controlKind: 'button',
+          screenRegion: 'statusBar',
+        }),
+        step(5, 'info', 'Smile! Photo Booth counts down 3, 2, 1 and snaps the photo.', {
+          autoAdvanceSeconds: 4,
+          elementDescription: 'Photo Booth countdown before the photo is captured',
+        }),
+        // --- Export the photo to the Desktop with a known name ---
+        step(6, 'click', 'Right-click the photo you just took (the newest thumbnail in the bottom strip).', {
+          elementDescription: 'the most recent photo thumbnail in the bottom strip of Photo Booth',
+          targetType: 'icon',
+        }),
+        step(7, 'click', 'Click "Export…" in the menu.', {
+          targetLabel: 'Export',
+          elementDescription: 'Export menu item in the right-click context menu',
+          controlKind: 'menuItem',
+        }),
+        step(8, 'type', 'Type "waylo-photo" as the file name so I can find it later on WhatsApp.', {
+          key: 'waylo-photo',
+          elementDescription: 'file name field in the Export save dialog',
+          screenRegion: 'dialog',
+        }),
+        step(9, 'click', 'Click the location dropdown (it currently shows Documents).', {
+          targetLabel: 'Documents',
+          elementDescription: 'the "Where" location popup button in the save dialog, currently set to Documents',
+          controlKind: 'button',
+          anchorText: 'Where',
+          screenRegion: 'dialog',
+        }),
+        step(10, 'click', 'Choose "Desktop" from the dropdown so the photo saves to your Desktop.', {
+          targetLabel: 'Desktop',
+          elementDescription: 'Desktop item in the location dropdown menu',
+          controlKind: 'menuItem',
+          screenRegion: 'dialog',
+        }),
+        step(11, 'click', 'Click the "Save" button.', {
+          targetLabel: 'Save',
+          elementDescription: 'Save button in the export dialog',
+          controlKind: 'button',
+          anchorPosition: 'right',
+          screenRegion: 'dialog',
+        }),
+        // --- Send it on WhatsApp ---
+        step(12, 'click', 'Click the WhatsApp icon in the Dock to open it.', {
+          targetLabel: 'WhatsApp',
+          elementDescription: 'WhatsApp app icon in the Dock',
+          targetType: 'icon',
+          controlKind: 'button',
+        }),
+        step(13, 'info', "Open any chat you want to send the photo to — I'll continue in a moment.", {
+          autoAdvanceSeconds: 2,
+          elementDescription: 'pick a conversation in the WhatsApp chat list',
+        }),
+        step(14, 'click', 'Click the "+" attach button next to the message box.', {
+          elementDescription: 'the plus / attach button at the bottom-left of the message input bar',
+          targetType: 'icon',
+          controlKind: 'button',
+          screenRegion: 'statusBar',
+        }),
+        step(15, 'click', 'Click "Photos & Videos".', {
+          targetLabel: 'Photos & Videos',
+          elementDescription: 'Photos & Videos option in the attach menu',
+          controlKind: 'menuItem',
+        }),
+        step(16, 'click', 'Click "Desktop" in the sidebar to open your Desktop.', {
+          targetLabel: 'Desktop',
+          elementDescription: 'Desktop shortcut in the file picker sidebar',
+          controlKind: 'row',
+          screenRegion: 'sidebar',
+        }),
+        step(17, 'click', 'Select the photo named "waylo-photo".', {
+          targetLabel: 'waylo-photo',
+          elementDescription: 'the file named waylo-photo that you just saved to the Desktop',
+        }),
+        step(18, 'click', 'Click the "Open" button.', {
+          targetLabel: 'Open',
+          elementDescription: 'Open button in the file picker',
+          controlKind: 'button',
+          anchorPosition: 'right',
+          screenRegion: 'dialog',
+        }),
+        step(19, 'click', 'Click the Send button to send the photo.', {
+          elementDescription: 'the send button (paper plane / arrow) next to the message box',
           targetType: 'icon',
           controlKind: 'button',
           screenRegion: 'statusBar',
