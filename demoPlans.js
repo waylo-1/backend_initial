@@ -3,14 +3,17 @@
  *
  * These bypass the Nova planner AND the semantic cache entirely so a demo/video
  * is 100% deterministic — no hallucinated buttons, no cold-start latency. If the
- * spoken/typed task fuzzy-matches one of the demos below, that exact plan is
- * returned immediately.
+ * spoken/typed task matches a demo, that exact plan is returned immediately.
  *
- * To add/edit a demo: add an entry to DEMOS with `triggers` (substrings to match
- * in the normalized task) and a `plan` ({ task, app, steps:[...] }). Steps use the
- * same shape as the live macOS planner. Order matters only if triggers overlap
- * (first match wins) — keep triggers specific.
+ * Matching: a demo matches if EITHER any `triggers` substring is present, OR
+ * every group in `all` has at least one matching keyword (AND-of-ORs). Keep
+ * triggers specific; first match in DEMOS wins.
+ *
+ * To edit a demo: change its steps below. Steps use the same shape as the live
+ * macOS planner. The user refines anything else live with Ctrl+Opt+Cmd+V.
  */
+
+const FILE_LABEL = 'photo'; // name the exported photo gets; reused on WhatsApp.
 
 /** Lowercases, strips punctuation, collapses whitespace. */
 function normalize(task) {
@@ -50,6 +53,9 @@ const openSystemSettings = () =>
   });
 
 const DEMOS = [
+  // -------------------------------------------------------------------------
+  // DEMO: Dark Mode
+  // -------------------------------------------------------------------------
   {
     triggers: ['dark mode', 'darkmode', 'dark theme', 'dark appearance', 'switch to dark', 'turn on dark'],
     plan: {
@@ -73,6 +79,10 @@ const DEMOS = [
       ],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // DEMO: Change password
+  // -------------------------------------------------------------------------
   {
     triggers: ['change password', 'change my password', 'change the password', 'reset password',
                'device password', 'laptop password', 'login password', 'mac password'],
@@ -97,20 +107,22 @@ const DEMOS = [
       ],
     },
   },
+
+  // -------------------------------------------------------------------------
+  // DEMO (Task 1): Take a photo in Photo Booth and save it to the Desktop
+  // -------------------------------------------------------------------------
   {
     triggers: ['photo booth', 'photobooth', 'take a photo', 'take a picture', 'take a selfie',
-               'send a photo', 'send the photo', 'send a picture', 'photo to whatsapp', 'picture to whatsapp'],
-    // Also match natural phrasing like "click photo and send it to whatsapp":
-    // (a photo/picture word) AND (a whatsapp word).
+               'save photo', 'save the photo', 'save to desktop', 'photo to desktop'],
+    // Natural phrasing: (a photo word) AND (a save/desktop word).
     all: [
       ['photo', 'picture', 'pic', 'selfie', 'image', 'snap', 'camera'],
-      ['whatsapp', 'whats app', 'whatsap', 'wa'],
+      ['save', 'desktop', 'export'],
     ],
     plan: {
-      task: 'Take a photo in Photo Booth and send it on WhatsApp',
+      task: 'Take a photo and save it to the Desktop',
       app: 'Photo Booth',
       steps: [
-        // --- Open Photo Booth via Spotlight ---
         step(1, 'key', 'Press Command and Space to open Spotlight search.', {
           key: 'space',
           elementDescription: 'Spotlight search opened with Command + Space',
@@ -123,7 +135,6 @@ const DEMOS = [
           key: 'return',
           elementDescription: 'Open the top Spotlight result',
         }),
-        // --- Take the photo ---
         step(4, 'click', 'Click the red camera button to take a photo.', {
           elementDescription: 'red camera shutter button at the bottom center of the Photo Booth window',
           targetType: 'icon',
@@ -134,7 +145,6 @@ const DEMOS = [
           autoAdvanceSeconds: 4,
           elementDescription: 'Photo Booth countdown before the photo is captured',
         }),
-        // --- Export the photo to the Desktop with a known name ---
         step(6, 'click', 'Right-click the photo you just took (the newest thumbnail in the bottom strip).', {
           elementDescription: 'the most recent photo thumbnail in the bottom strip of Photo Booth',
           targetType: 'icon',
@@ -144,8 +154,8 @@ const DEMOS = [
           elementDescription: 'Export menu item in the right-click context menu',
           controlKind: 'menuItem',
         }),
-        step(8, 'type', 'Type "waylo-photo" as the file name so I can find it later on WhatsApp.', {
-          key: 'waylo-photo',
+        step(8, 'type', 'Type "photo" as the file name.', {
+          key: FILE_LABEL,
           elementDescription: 'file name field in the Export save dialog',
           screenRegion: 'dialog',
         }),
@@ -169,49 +179,69 @@ const DEMOS = [
           anchorPosition: 'right',
           screenRegion: 'dialog',
         }),
-        // --- Send it on WhatsApp ---
-        step(12, 'click', 'Click the WhatsApp icon in the Dock to open it.', {
+      ],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // DEMO (Task 2): Send the saved photo on WhatsApp
+  // -------------------------------------------------------------------------
+  {
+    triggers: ['send to whatsapp', 'send it to whatsapp', 'send the photo to whatsapp',
+               'send photo to whatsapp', 'photo to whatsapp', 'picture to whatsapp',
+               'share on whatsapp', 'whatsapp it'],
+    // Natural phrasing: (a whatsapp word) AND (a send/share/photo word).
+    all: [
+      ['whatsapp', 'whats app', 'whatsap'],
+      ['send', 'share', 'photo', 'picture', 'pic', 'upload', 'attach'],
+    ],
+    plan: {
+      task: 'Send the photo on WhatsApp',
+      app: 'WhatsApp',
+      steps: [
+        step(1, 'click', 'Click the WhatsApp icon in the Dock to open it.', {
           targetLabel: 'WhatsApp',
           elementDescription: 'WhatsApp app icon in the Dock',
           targetType: 'icon',
           controlKind: 'button',
         }),
-        step(13, 'info', "Open any chat you want to send the photo to — I'll continue in a moment.", {
+        step(2, 'info', "Open any chat you want to send the photo to — I'll continue in a moment.", {
           autoAdvanceSeconds: 2,
           elementDescription: 'pick a conversation in the WhatsApp chat list',
         }),
-        step(14, 'click', 'Click the "+" attach button (Add Media) next to the message box.', {
+        step(3, 'click', 'Click the "+" attach button (Add Media) next to the message box.', {
           targetLabel: 'Add Media',
           elementDescription: 'the Add Media button (the + / attach button) at the bottom-left of the message input bar',
           controlKind: 'button',
           screenRegion: 'statusBar',
         }),
-        step(15, 'click', 'Click "Photos & Videos".', {
+        step(4, 'click', 'Click "Photos & Videos".', {
           targetLabel: 'Photos & Videos',
           elementDescription: 'Photos & Videos option in the attach menu',
           controlKind: 'menuItem',
         }),
-        step(16, 'click', 'Click "Desktop" in the sidebar to open your Desktop.', {
+        step(5, 'click', 'Click "Desktop" in the sidebar to open your Desktop.', {
           targetLabel: 'Desktop',
           elementDescription: 'Desktop shortcut in the file picker sidebar',
           controlKind: 'row',
           screenRegion: 'sidebar',
         }),
-        step(17, 'click', 'Select the photo named "waylo-photo".', {
-          targetLabel: 'waylo-photo',
-          elementDescription: 'the file named waylo-photo that you just saved to the Desktop',
+        step(6, 'click', 'Select the photo named "photo".', {
+          targetLabel: FILE_LABEL,
+          elementDescription: 'the file named photo that you saved to the Desktop',
         }),
-        step(18, 'click', 'Click the "Open" button.', {
+        step(7, 'click', 'Click the "Open" button.', {
           targetLabel: 'Open',
           elementDescription: 'Open button in the file picker',
           controlKind: 'button',
           anchorPosition: 'right',
           screenRegion: 'dialog',
         }),
-        step(19, 'click', 'Click the Send button to send the photo.', {
-          targetLabel: 'Send',
-          elementDescription: 'the Send button (paper plane / arrow) next to the message box',
+        step(8, 'click', 'Click the send button (the arrow at the bottom-right) to send the photo.', {
+          elementDescription: 'a dark/black arrow icon with a green circular outline at the bottom-right corner of the WhatsApp window',
+          targetType: 'icon',
           controlKind: 'button',
+          anchorPosition: 'right',
           screenRegion: 'statusBar',
         }),
       ],
@@ -221,8 +251,6 @@ const DEMOS = [
 
 /**
  * Returns a deep-cloned hardcoded plan if the task matches a demo, else null.
- * A demo matches if EITHER any `triggers` substring is present, OR every group
- * in `all` has at least one matching keyword (AND-of-ORs).
  */
 function getDemoPlan(task) {
   const n = normalize(task);
