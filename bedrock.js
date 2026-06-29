@@ -684,6 +684,13 @@ If the user gave feedback (e.g. "that's the wrong button", "this icon doesn't
 exist here", "now also do X"), treat their words as the source of truth and
 correct your guidance accordingly.
 
+STRONGLY PREFER RELABEL or SCROLL. A REPLAN throws away the whole flow, so only
+replan if the screen is a genuinely different context. NEVER switch which
+settings section the task uses: to change a login/device PASSWORD the correct
+pane is "Touch ID & Password" (or "Login Password") — NEVER "Users & Groups".
+The element is usually just off-screen (scroll) or under a slightly different
+label (relabel).
+
 Return ONLY valid JSON, no markdown:
 {
   "replan": false,
