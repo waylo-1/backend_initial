@@ -135,19 +135,18 @@ const DEMOS = [
           key: 'return',
           elementDescription: 'Open the top Spotlight result',
         }),
-        step(4, 'click', 'Click the red camera button to take a photo.', {
-          elementDescription: 'red camera shutter button at the bottom center of the Photo Booth window',
-          targetType: 'icon',
+        step(4, 'click', 'Click the "Take Photo" button (the round camera shutter button) to take a photo.', {
+          targetLabel: 'Take Photo',
+          elementDescription: 'the Take Photo button — the round red/silver camera shutter button at the center-bottom of the Photo Booth window',
           controlKind: 'button',
-          screenRegion: 'statusBar',
         }),
         step(5, 'info', 'Smile! Photo Booth counts down 3, 2, 1 and snaps the photo.', {
           autoAdvanceSeconds: 4,
           elementDescription: 'Photo Booth countdown before the photo is captured',
         }),
-        step(6, 'click', 'Right-click the photo you just took (the newest thumbnail in the bottom strip).', {
-          elementDescription: 'the most recent photo thumbnail in the bottom strip of Photo Booth',
-          targetType: 'icon',
+        step(6, 'click', 'Right-click the photo you just took (the newest, rightmost thumbnail in the bottom strip).', {
+          targetLabel: 'newest photo',
+          elementDescription: 'the most recent photo — the rightmost thumbnail in the row of captured photos at the bottom of the Photo Booth window',
         }),
         step(7, 'click', 'Click "Export…" in the menu.', {
           targetLabel: 'Export',
