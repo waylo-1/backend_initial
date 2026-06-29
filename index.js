@@ -272,6 +272,9 @@ app.post('/plan/learn', async (req, res) => {
       elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
       screenRegion: REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
       targetType: s.targetType === 'icon' ? 'icon' : 'text',
+      controlKind: typeof s.controlKind === 'string' ? s.controlKind : '',
+      anchorText: typeof s.anchorText === 'string' ? s.anchorText : '',
+      anchorPosition: typeof s.anchorPosition === 'string' ? s.anchorPosition : '',
       key: typeof s.key === 'string' ? s.key : null,
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
     }));

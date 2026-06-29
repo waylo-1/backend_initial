@@ -379,6 +379,9 @@ Format:
       "elementDescription": "natural-language description of the element + location",
       "screenRegion": "ribbon",
       "targetType": "text",
+      "controlKind": "button",
+      "anchorText": "",
+      "anchorPosition": "",
       "key": null
     }
   ]
@@ -405,6 +408,19 @@ Rules:
   the full label and a partial label points at the wrong control. If the element
   is icon-only (no visible text), set "targetLabel" to "" and describe it
   precisely in "elementDescription".
+  EXCEPTION: use the control's REAL short label even if it seems incomplete — a
+  button is often labelled just "Change…" or "Edit", not "Change Password". Use
+  exactly what's printed on the button.
+- "controlKind" is the KIND of control to click, so the app clicks a real control
+  and not nearby header/label text. Use exactly one of: "button", "menuItem",
+  "checkbox", "tab", "link", "field", or "text" (plain text/label). For a button
+  like "Change…" use "button".
+- "anchorText" + "anchorPosition" DISAMBIGUATE a target whose label is short or
+  repeated. Set "anchorText" to a distinctive nearby visible label (e.g. the
+  section header "Login Password"), and "anchorPosition" to where the target sits
+  relative to it: "below", "above", "left", "right", or "near". Example: the
+  "Change…" button → anchorText "Login Password", anchorPosition "right". Leave
+  both "" when the label alone is unambiguous.
 - For "type", "key" and "info" steps, set "targetLabel" to "".
 - "targetType" tells the app which detector to use. Use exactly one of:
     "text" — the target shows readable WORDS (a button, menu item, link, label,
@@ -503,6 +519,9 @@ async function generateDesktopSteps(task) {
         s.elementDescription || s.findDescription || s.instruction || '',
       screenRegion: REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
       targetType: s.targetType === 'icon' ? 'icon' : 'text',
+      controlKind: typeof s.controlKind === 'string' ? s.controlKind : '',
+      anchorText: typeof s.anchorText === 'string' ? s.anchorText : '',
+      anchorPosition: typeof s.anchorPosition === 'string' ? s.anchorPosition : '',
       key: typeof s.key === 'string' ? s.key : null,
       // Keep findDescription for backward compatibility with older clients.
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
@@ -714,7 +733,7 @@ OR (replan)
   "scrollDirection": "",
   "instruction": "",
   "steps": [
-    { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "screenRegion": "fullScreen", "targetType": "text", "key": null }
+    { "index": 1, "action": "click", "instruction": "...", "targetLabel": "exact visible text", "elementDescription": "...", "screenRegion": "fullScreen", "targetType": "text", "controlKind": "button", "anchorText": "", "anchorPosition": "", "key": null }
   ]
 }
 
@@ -753,6 +772,9 @@ Rules for steps (when replanning): "action" is one of click/type/key/info.
         elementDescription: s.elementDescription || s.findDescription || s.instruction || '',
         screenRegion: ['menuBar', 'ribbon', 'dialog', 'sidebar', 'spreadsheet', 'statusBar', 'fullScreen'].includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
         targetType: s.targetType === 'icon' ? 'icon' : 'text',
+        controlKind: typeof s.controlKind === 'string' ? s.controlKind : '',
+        anchorText: typeof s.anchorText === 'string' ? s.anchorText : '',
+        anchorPosition: typeof s.anchorPosition === 'string' ? s.anchorPosition : '',
         key: typeof s.key === 'string' ? s.key : null,
         findDescription: s.findDescription || s.elementDescription || s.instruction || '',
       }))
