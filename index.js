@@ -29,11 +29,40 @@ const yoloDetectRoute = require('./routes/yolo-detect');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
+// Don't advertise the framework.
+app.disable('x-powered-by');
+
+// Basic security response headers (no external dependency).
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-DNS-Prefetch-Control', 'off');
+  next();
+});
+
+// CORS: if ALLOWED_ORIGINS is set (comma-separated), restrict to it; otherwise
+// allow all (the macOS app is a native client and sends no Origin header).
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+app.use(cors(allowedOrigins.length
+  ? { origin: (origin, cb) => cb(null, !origin || allowedOrigins.includes(origin)) }
+  : {}));
+
 // Raised limit: /vision receives Base64 JPEG screenshots which exceed the
 // default 100kb body limit.
 app.use(express.json({ limit: '12mb' }));
+
+// Global rate limiter — protects every endpoint from abuse. /plan keeps its
+// own tighter limiter below.
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please slow down' },
+});
+app.use(globalLimiter);
 
 // Rate limiter for /plan endpoint
 const planLimiter = rateLimit({
