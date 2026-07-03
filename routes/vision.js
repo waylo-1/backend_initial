@@ -11,7 +11,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { converse, stripFences } = require('../bedrock');
+const { askVision, stripFences } = require('../services/llm');
 
 const DEBUG = process.env.WAYLO_DEBUG === '1';
 
@@ -75,26 +75,18 @@ If not recoverable (feature doesn't exist, needs paid plan, etc.):
 set recoverable=false, newSteps=[], and explain clearly in "explanation".
 `.trim();
 
-// ── Bedrock vision call with one retry on throttling ────────────────────────
+// ── Vision call with one retry on throttling ────────────────────────────────
 async function callModel(prompt, screenshotBase64) {
-  const content = [
-    { text: prompt },
-    {
-      image: {
-        format: 'jpeg',
-        source: { bytes: Buffer.from(screenshotBase64, 'base64') },
-      },
-    },
-  ];
+  const opts = { prompt, imageBase64: screenshotBase64, maxTokens: 1500, temperature: 0.2 };
 
   try {
-    return await converse({ content, maxTokens: 1500, temperature: 0.2 });
+    return await askVision(opts);
   } catch (err) {
     // Throttled — wait 5s and retry once before failing.
     if (/throttl|429|rate/i.test(err.message || '')) {
-      console.warn('[vision] Bedrock throttled — retrying once in 5s');
+      console.warn('[vision] provider throttled — retrying once in 5s');
       await new Promise((r) => setTimeout(r, 5000));
-      return await converse({ content, maxTokens: 1500, temperature: 0.2 });
+      return await askVision(opts);
     }
     throw err;
   }

@@ -4,9 +4,11 @@
  *
  * Required env vars:
  *   DATABASE_URL          - AWS RDS/Aurora Postgres connection string (pgvector)
- *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION  - Bedrock
- *   BEDROCK_MODEL_ID, BEDROCK_PLAN_MODEL_ID, BEDROCK_VISION_MODEL_ID,
+ *   AI_PROVIDER            - "bedrock" (default) or "gemini" — see services/llm.js
+ *   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_REGION  - required if AI_PROVIDER=bedrock
+ *   BEDROCK_TEXT_MODEL_ID, BEDROCK_VISION_MODEL_ID, BEDROCK_OBJECT_DETECT_MODEL_ID,
  *   BEDROCK_EMBED_MODEL_ID                                - Bedrock model ids
+ *   GEMINI_API_KEY, GEMINI_TEXT_MODEL, GEMINI_VISION_MODEL - required if AI_PROVIDER=gemini
  *   PORT                  - server port (default 3000)
  */
 
@@ -15,7 +17,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateSteps, generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen } = require('./bedrock');
+const { generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen } = require('./services/llm');
 const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');

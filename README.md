@@ -5,16 +5,16 @@ Backend server for Waylo - an AI-powered Android app that helps elderly users na
 ## Features
 
 - **Multilingual Support**: Detects and responds in 10 Indian languages + English
-- **AI-Powered Instructions**: Uses AWS Bedrock (Claude) to generate step-by-step guides
+- **AI-Powered Instructions**: Uses AWS Bedrock (Amazon Nova) or Google Gemini — swappable via `AI_PROVIDER` — to generate step-by-step guides
 - **App Package Resolution**: Each step is enriched with the target app's Android `appPackage`
   so the on-device element finder prefers the real app over look-alikes
-- **Vision Fallback** (`POST /vision`): Claude (Bedrock) vision locates missing elements on a screenshot
+- **Vision Fallback** (`POST /vision`): vision locates missing elements on a screenshot
   (`locate`) or generates recovery steps when the screen looks wrong (`troubleshoot`)
 - **Persistent Guides**: Saves guides to Supabase with 30-day expiry
 - **Rate Limiting**: Protects the /plan endpoint from abuse
 - **CORS Enabled**: Ready for cross-origin requests
 
-Set `WAYLO_DEBUG=1` to log full vision prompts and raw Gemini responses.
+Set `WAYLO_DEBUG=1` to log full vision prompts and raw model responses.
 
 ## Supported Languages
 
@@ -49,7 +49,7 @@ Required variables:
 - `AWS_ACCESS_KEY_ID`: Your AWS access key
 - `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
 - `AWS_REGION`: Bedrock region (e.g. `us-east-1`)
-- `BEDROCK_MODEL_ID`: Claude model id / inference profile (e.g. `us.anthropic.claude-3-5-sonnet-20241022-v2:0`)
+- `AI_PROVIDER`: `bedrock` (default) or `gemini` — see `.env.example` for the model-id vars each provider needs
 - `SUPABASE_URL`: Your Supabase project URL
 - `SUPABASE_ANON_KEY`: Your Supabase anonymous key
 - `PORT`: Server port (default: 3000)
@@ -132,7 +132,7 @@ Generate step-by-step instructions for a task.
 
 ### POST /vision
 
-Layer 3 fallback. Sends a Base64 JPEG screenshot to Gemini Vision.
+Layer 3 fallback. Sends a Base64 JPEG screenshot to the configured AI provider's vision model.
 
 **Request:**
 ```json
@@ -153,7 +153,7 @@ Layer 3 fallback. Sends a Base64 JPEG screenshot to Gemini Vision.
 
 **Response (`troubleshoot`):** `{ "recoverable", "rootCause", "explanation", "newSteps": [...] }`
 
-Gemini calls have a 60s timeout; a 429 from Gemini is retried once after 5s.
+A 429/throttled response from the model is retried once after 5s.
 
 ### POST /guide
 
@@ -201,11 +201,18 @@ Retrieve a saved guide by ID.
 ```
 waylo-backend/
 ├── index.js          # Main Express server
-├── bedrock.js        # AWS Bedrock (Claude) integration with multilingual prompts + appPackage enrichment
+├── services/
+│   ├── llm.js             # Single AI entry point — every route calls through here.
+│   │                       # Selects a provider via AI_PROVIDER=bedrock|gemini (default bedrock).
+│   ├── promptSpecs.js      # Shared prompts + output-shape validation (provider-agnostic)
+│   └── providers/
+│       ├── bedrock.js      # AWS Bedrock (Amazon Nova) raw model calls
+│       └── gemini.js       # Google Gemini raw model calls
 ├── routes/
-│   ├── vision.js          # /vision — Claude vision: locate + troubleshoot (Android)
-│   └── vision-fallback.js # /vision-fallback — desktop (macOS) screenshot analysis
-├── supabase.js       # Supabase database client
+│   ├── vision.js          # /vision — locate + troubleshoot (Android)
+│   ├── vision-fallback.js # /vision-fallback — desktop (macOS) screenshot analysis
+│   └── failure.js         # /failure — detection-failure logging for YOLO training data
+├── db.js              # AWS RDS/Aurora Postgres pool
 ├── langdetect.js     # Language detection utility
 ├── package.json      # Dependencies and scripts
 ├── .env.example      # Environment variables template
@@ -232,12 +239,10 @@ Layer 2 Part C needs `app/src/main/assets/icon_classifier.tflite` (bundled; any
 This backend is designed to be deployed on Railway, Render, or any Node.js hosting platform.
 
 ### Environment Variables Required:
-- `AWS_ACCESS_KEY_ID`
-- `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-- `BEDROCK_MODEL_ID`
-- `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
+- `AI_PROVIDER` (`bedrock` or `gemini`)
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (if `AI_PROVIDER=bedrock`)
+- `GEMINI_API_KEY` (if `AI_PROVIDER=gemini`)
+- `DATABASE_URL`
 - `PORT` (auto-set by most platforms)
 
 ## Logging

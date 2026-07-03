@@ -11,7 +11,7 @@
 const express = require('express');
 const router = express.Router();
 
-const { converse, stripFences } = require('../bedrock');
+const { askVision, stripFences } = require('../services/llm');
 
 const FALLBACK_PROMPT = (task, stepIndex, totalSteps, findDescription, width, height) => `
 You help a desktop guidance app find a UI element when normal methods fail.
@@ -58,16 +58,9 @@ router.post('/', async (req, res) => {
   try {
     const prompt = FALLBACK_PROMPT(task, stepIndex, totalSteps, findDescription, imageWidth, imageHeight);
 
-    const rawText = await converse({
-      content: [
-        { text: prompt },
-        {
-          image: {
-            format: 'jpeg',
-            source: { bytes: Buffer.from(screenshot, 'base64') },
-          },
-        },
-      ],
+    const rawText = await askVision({
+      prompt,
+      imageBase64: screenshot,
       maxTokens: 1000,
       temperature: 0.2,
     });
