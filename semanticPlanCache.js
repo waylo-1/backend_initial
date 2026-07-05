@@ -19,14 +19,23 @@ const PLAN_SIMILARITY_THRESHOLD = 0.92;
 const QUOTA_FALLBACK_SIMILARITY_THRESHOLD = 0.85;
 
 /**
- * Bump this whenever the planning prompt changes meaningfully to invalidate ALL
- * previously cached plans. The version is folded into the `platform` value
- * (which match_plan_cache filters on with exact equality), so old rows simply
- * stop matching. NOTE: we do NOT fold the version into the embedding text — a
- * short prefix barely moves a Titan vector, so stale plans would still match.
+ * Bump the relevant platform's version whenever ITS planning prompt changes
+ * meaningfully, to invalidate ALL previously cached plans for that platform
+ * (tracked per-platform so improving one prompt doesn't also throw away the
+ * other platform's still-good cached plans). The version is folded into the
+ * `platform` value (which match_plan_cache filters on with exact equality), so
+ * old rows simply stop matching. NOTE: we do NOT fold the version into the
+ * embedding text — a short prefix barely moves a Titan vector, so stale plans
+ * would still match.
  */
-const PLAN_PROMPT_VERSION = 'v8';
-const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSION}`;
+const PLAN_PROMPT_VERSIONS = {
+  macos: 'v8',
+  // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
+  // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
+  // completion steps) must not keep being served from cache.
+  android: 'v9',
+};
+const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSIONS[platform] || PLAN_PROMPT_VERSIONS.macos}`;
 
 /** pgvector text literal, e.g. "[0.1,0.2,...]". */
 function toVector(arr) {

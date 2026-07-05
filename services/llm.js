@@ -75,7 +75,10 @@ async function generateEnrichedSteps(task) {
   const text = await raw.askText({
     system: specs.ENRICHED_SYSTEM_PROMPT,
     prompt: `Task: ${task}`,
-    maxTokens: 2000,
+    // Deeper plans (5-10 granular steps, per the elderly-friendly rewrite) run
+    // longer than the old 2-4 step output; give the model headroom so it isn't
+    // truncated mid-JSON.
+    maxTokens: 3000,
     temperature: 0.3,
   });
 
