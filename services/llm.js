@@ -42,6 +42,27 @@ async function askVision(opts) {
 
 const { stripFences } = specs;
 
+/**
+ * Classifies an error thrown by a provider call as "the AI is temporarily
+ * unavailable" (throttling, rate limits, quota exhaustion, or an account/API
+ * key access hold) as opposed to a genuine bug. Checked across both providers:
+ * Bedrock throws AWS SDK errors with $metadata.httpStatusCode/name, Gemini
+ * throws plain Errors with the HTTP status folded into the message text.
+ *
+ * NOTE: a bare 403 is NOT enough on its own — AWS also returns 403 for plain
+ * invalid-credentials errors (e.g. UnrecognizedClientException), which are a
+ * real bug, not a transient condition. Only treat 403 as quota-like when the
+ * name/message actually says so (AccessDenied, "being verified", etc.).
+ */
+function isQuotaOrThrottleError(err) {
+  const status = err?.$metadata?.httpStatusCode;
+  const haystack = `${err?.name || ''} ${err?.message || ''}`;
+  return (
+    status === 429 ||
+    /throttl|toomanyrequests|quota|rate.?limit|resource.?exhausted|accessdenied|being verified/i.test(haystack)
+  );
+}
+
 // ── POST /plan (Android) ────────────────────────────────────────────────────
 
 /**
@@ -137,6 +158,7 @@ module.exports = {
   askText,
   askVision,
   stripFences,
+  isQuotaOrThrottleError,
   generateEnrichedSteps,
   generateDesktopSteps,
   recoverDesktopStep,

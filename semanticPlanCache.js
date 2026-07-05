@@ -14,6 +14,10 @@ const { embedText } = require('./embeddings');
 
 const PLAN_SIMILARITY_THRESHOLD = 0.92;
 
+// Used only as a degraded fallback when the live model is throttled/unavailable —
+// a slightly-looser match still beats a hard failure for the user.
+const QUOTA_FALLBACK_SIMILARITY_THRESHOLD = 0.85;
+
 /**
  * Bump this whenever the planning prompt changes meaningfully to invalidate ALL
  * previously cached plans. The version is folded into the `platform` value
@@ -29,13 +33,18 @@ function toVector(arr) {
   return `[${arr.join(',')}]`;
 }
 
-/** Returns a cached step plan (parsed object) for a similar task, or null. */
-async function getPlanFromCache(platform, taskText) {
+/**
+ * Returns a cached step plan (parsed object) for a similar task, or null.
+ * @param {number} [threshold] - overrides PLAN_SIMILARITY_THRESHOLD. Used to
+ *   widen the match (a lower threshold) when the live model is unavailable and
+ *   a slightly-less-similar cached plan beats a hard failure.
+ */
+async function getPlanFromCache(platform, taskText, threshold = PLAN_SIMILARITY_THRESHOLD) {
   try {
     const embedding = await embedText(taskText);
     const { rows } = await db.query(
       'SELECT * FROM match_plan_cache($1::vector, $2, $3, $4)',
-      [toVector(embedding), PLAN_SIMILARITY_THRESHOLD, 1, versioned(platform)]
+      [toVector(embedding), threshold, 1, versioned(platform)]
     );
     if (!rows || rows.length === 0) return null;
     try {
@@ -105,4 +114,11 @@ async function forgetPlan(platform, taskText) {
   }
 }
 
-module.exports = { getPlanFromCache, storePlanInCache, learnPlan, forgetPlan };
+module.exports = {
+  getPlanFromCache,
+  storePlanInCache,
+  learnPlan,
+  forgetPlan,
+  PLAN_SIMILARITY_THRESHOLD,
+  QUOTA_FALLBACK_SIMILARITY_THRESHOLD,
+};

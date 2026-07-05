@@ -17,7 +17,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen } = require('./services/llm');
+const { generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen, isQuotaOrThrottleError } = require('./services/llm');
 const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
@@ -120,7 +120,29 @@ app.post('/plan', planLimiter, async (req, res) => {
         return res.json({ ...cachedPlan, cached: true });
       }
 
-      const plan = await generateDesktopSteps(task);
+      let plan;
+      try {
+        plan = await generateDesktopSteps(task);
+      } catch (genError) {
+        if (!isQuotaOrThrottleError(genError)) throw genError;
+
+        console.warn(`Plan generation throttled (macOS) for "${task}" — trying a degraded semantic-cache match`);
+        const fallbackPlan = await semanticPlanCache.getPlanFromCache(
+          'macos', task, semanticPlanCache.QUOTA_FALLBACK_SIMILARITY_THRESHOLD
+        );
+        if (fallbackPlan) {
+          console.log(`Plan quota-fallback HIT (macOS, degraded similarity) for: ${task}`);
+          return res.json({ ...fallbackPlan, cached: true, degraded: true });
+        }
+
+        console.error('Plan generation throttled (macOS) and no cache fallback available:', genError.message);
+        return res.status(429).json({
+          success: false,
+          error: 'AI service is temporarily busy. Please try again in a moment.',
+          code: 'quota_exceeded',
+        });
+      }
+
       console.log(`Bedrock desktop response received, ${plan.steps?.length || 0} steps parsed`);
 
       // Store for next time (fire-and-forget; only cache non-empty plans).
@@ -152,12 +174,50 @@ app.post('/plan', planLimiter, async (req, res) => {
     // Generate enriched 8-field steps. The richer per-step metadata gives the
     // Android detection layers much more signal to match against, reducing
     // costly vision fallbacks.
-    const plan = await generateEnrichedSteps(task);
+    let plan;
+    try {
+      plan = await generateEnrichedSteps(task);
+    } catch (genError) {
+      if (!isQuotaOrThrottleError(genError)) throw genError;
+
+      console.warn(`Plan generation throttled for "${task}" — trying a degraded semantic-cache match`);
+      const fallbackPlan = await semanticPlanCache.getPlanFromCache(
+        'android', task, semanticPlanCache.QUOTA_FALLBACK_SIMILARITY_THRESHOLD
+      );
+      if (fallbackPlan) {
+        console.log(`Plan quota-fallback HIT (degraded similarity) for: ${task}`);
+        return res.json({
+          success: true,
+          appPackage: fallbackPlan.appPackage,
+          appName: fallbackPlan.appName,
+          language,
+          steps: fallbackPlan.steps,
+          totalSteps: fallbackPlan.steps.length,
+          cached: true,
+          degraded: true,
+        });
+      }
+
+      console.error('Plan generation throttled and no cache fallback available:', genError.message);
+      return res.status(429).json({
+        success: false,
+        error: 'AI service is temporarily busy. Please try again in a moment.',
+        code: 'quota_exceeded',
+      });
+    }
     console.log(`Bedrock response received, ${plan.steps.length} enriched steps parsed`);
 
     // Cache for next time (only worth caching a non-empty plan).
     if (plan.steps.length > 0) {
       planCache.set(task, '', plan);
+      // Also store in the semantic (pgvector) cache so a paraphrase can still
+      // be served — including as a degraded fallback above — if the live model
+      // is throttled later. Fire-and-forget; failures are swallowed.
+      semanticPlanCache.storePlanInCache('android', task, {
+        appPackage: plan.appPackage,
+        appName: plan.appName,
+        steps: plan.steps,
+      }).then(() => {}, () => {});
     }
 
     res.json({
