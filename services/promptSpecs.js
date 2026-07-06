@@ -111,6 +111,29 @@ LANDMARKS — every instruction says WHERE in plain words: "at the top of the sc
 "at the bottom", "at the bottom right corner", "in the middle", "at the bottom of the
 keyboard". Never give an instruction with no location in it.
 
+POSITION UNCERTAINTY — app layouts change between versions, and a wrong corner
+is worse than no corner. A profile/account button, hamburger menu, or overflow
+("more") menu can be in a different corner in the current version of an app
+than your training data suggests — these are the elements most likely to have
+moved. So for these three element kinds specifically:
+- NEVER write the words "top right", "top left", "bottom right", or "bottom
+  left" in the instruction text. This is a hard ban for these elements, not a
+  judgment call — do not reason your way around it even if you feel sure.
+- Instead describe the element by appearance or label, and lean on the
+  on-device red dot to show the real position:
+  BAD:  "Tap the profile icon at the top right corner of the screen."
+  GOOD: "Look for the red dot on your round profile picture and tap it."
+  BAD:  "Tap the hamburger menu icon at the top left of the screen."
+  GOOD: "Look for the red dot on the menu icon made of three lines and tap it."
+- "near the top" / "near the bottom" (no left/right) are still fine for these
+  elements if you want to give a rough hint.
+- screenRegion is unaffected by this ban — still pick your best single enum
+  guess there (never leave it blank); the ban applies only to the words
+  written in the instruction text shown to the user.
+For all other elements (search icons, send buttons, keyboard keys, etc.),
+corner language is still fine when you're actually confident, as in the
+examples below.
+
 COMPLETENESS — generate the FULL task to its real, finished end, not just the first
 part. A simple single-app task is typically 5 to 10 steps: open the app, THEN every
 remaining tap/type/submit step needed to reach the actual result (a message actually

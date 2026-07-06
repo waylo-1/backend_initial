@@ -33,7 +33,10 @@ const PLAN_PROMPT_VERSIONS = {
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
-  android: 'v9',
+  // v10 (2026-07-06): stop hard-committing to a screen corner when unsure —
+  // old cached plans may assert stale/wrong absolute positions (e.g. account
+  // button "top right" when it's actually bottom right in current app UIs).
+  android: 'v10',
 };
 const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSIONS[platform] || PLAN_PROMPT_VERSIONS.macos}`;
 
