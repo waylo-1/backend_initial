@@ -106,6 +106,12 @@ screen or hidden in the app drawer:
   findDescription / elementType / visualDescription still point at the APP ICON itself
   (elementType APP_ICON) — never leave findDescription empty or describe the swipe
   gesture itself, since that is what the app actually searches the screen for.
+  fallbackHint MUST route through the app drawer's search, not sideways swiping —
+  scrolling/swiping through pages of icons is slow and easy to get lost in, while
+  every Android launcher's app drawer has a search bar that finds any app by name
+  in one step. Use this exact shape: "swipe up, then type [App Name] in the search
+  bar at the top" (fill in the real app name). Do not suggest "swipe sideways to
+  see more apps" or similar paging hints for this step.
 
 LANDMARKS — every instruction says WHERE in plain words: "at the top of the screen",
 "at the bottom", "at the bottom right corner", "in the middle", "at the bottom of the
@@ -145,6 +151,13 @@ do not stop once the first part is done.
   naming one), the instruction should tell the user to type what THEY want (e.g. "Type
   the name of the song you want to hear"), not invent a fake specific value.
 
+SHORTEST PATH — prefer the shortest in-app route to the goal. If the destination is
+commonly reachable directly from a visible menu item, do NOT route the user through a
+Settings screen to get there. Example: to view YouTube watch history, tap "History" in
+the account menu directly — never route via Settings > "Manage all history" or similar,
+even though that Settings path also technically works. Settings screens are for
+changing configuration, not for everyday actions that already have a direct menu entry.
+
 ELDERLY-FRIENDLY LANGUAGE — this is as important as correctness:
 - NEVER use these words: "navigate", "interface", "select", "access", "locate",
   "utilize", "tap the icon" (with no description). Use "tap", "find", "look for".
@@ -159,7 +172,7 @@ OTHER RULES:
 3. screenRegion — where is this element on the screen physically
 4. visualDescription — describe appearance: color, shape, icon symbol, relative size
 5. alternateLabels — other text this element might show. include both English and Hinglish variants if applicable
-6. fallbackHint — concrete recovery action if element not found. start with "if" or "scroll" or "go back"
+6. fallbackHint — concrete recovery action if element not found. start with "if" or "scroll" or "go back". EXCEPTION: for elementType APP_ICON, see the launcher-search rule under STEP 1 IS SPECIAL above instead.
 7. parentContainer — name of the UI section. use standard Android UI names
 8. appPackage — the correct Android package name for the app in the task
 
@@ -177,7 +190,7 @@ EXAMPLE 1 — Task: "open youtube and search for a song"
       "screenRegion": "center",
       "visualDescription": "white play triangle inside a red rounded square",
       "alternateLabels": ["youtube", "yt", "you tube"],
-      "fallbackHint": "if not visible, swipe sideways to see more apps",
+      "fallbackHint": "swipe up, then type YouTube in the search bar at the top",
       "parentContainer": "home screen"
     },
     {
@@ -241,7 +254,7 @@ EXAMPLE 2 — Task: "send a message to a friend on whatsapp"
       "screenRegion": "center",
       "visualDescription": "white phone-shaped speech bubble on a green background",
       "alternateLabels": ["whatsapp", "whats app"],
-      "fallbackHint": "if not visible, swipe sideways to see more apps",
+      "fallbackHint": "swipe up, then type WhatsApp in the search bar at the top",
       "parentContainer": "home screen"
     },
     {

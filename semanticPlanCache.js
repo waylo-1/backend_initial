@@ -36,7 +36,11 @@ const PLAN_PROMPT_VERSIONS = {
   // v10 (2026-07-06): stop hard-committing to a screen corner when unsure —
   // old cached plans may assert stale/wrong absolute positions (e.g. account
   // button "top right" when it's actually bottom right in current app UIs).
-  android: 'v10',
+  // v11 (2026-07-06): app-icon fallbackHint now routes through launcher search
+  // instead of sideways swiping; added shortest-in-app-path rule (don't route
+  // through Settings when a direct menu entry exists) — old cached plans may
+  // still have swipe-paging fallbacks or Settings-routed detours.
+  android: 'v11',
 };
 const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSIONS[platform] || PLAN_PROMPT_VERSIONS.macos}`;
 
