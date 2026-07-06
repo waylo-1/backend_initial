@@ -20,11 +20,16 @@ executor = ThreadPoolExecutor(max_workers=2)
 
 omni_model: Optional[YOLO] = None
 macos_model: Optional[YOLO] = None
+# CLIP for semantic box↔label matching. YOLO boxes carry no text, so without
+# this the caller can't tell "the Bold icon" from any other icon. Optional:
+# set DISABLE_CLIP_MATCH=1 to skip loading (saves ~600MB RAM / startup time).
+clip_model = None
+clip_processor = None
 
 
 @app.on_event("startup")
 def load_models():
-    global omni_model, macos_model
+    global omni_model, macos_model, clip_model, clip_processor
 
     print("[YOLO] Loading OmniParser icon_detect...")
     omni_path = "weights/icon_detect/model.pt"
@@ -38,14 +43,34 @@ def load_models():
     print("[YOLO] OmniParser loaded.")
 
     print("[YOLO] Loading Screen2AX yolov11l...")
-    macos_path = hf_hub_download(
-        repo_id="macpaw-research/yolov11l-ui-elements-detection",
-        filename="ui-elements-detection.pt",
-        local_dir="weights/screen2ax",
-    )
+    # A fine-tuned checkpoint (finetune/train.py) takes precedence; the hub
+    # download would otherwise clobber it on restart.
+    custom_path = "weights/screen2ax-custom/ui-elements-detection.pt"
+    if os.path.exists(custom_path):
+        macos_path = custom_path
+        print("[YOLO] Using FINE-TUNED Screen2AX checkpoint (weights/screen2ax-custom).")
+    else:
+        macos_path = hf_hub_download(
+            repo_id="macpaw-research/yolov11l-ui-elements-detection",
+            filename="ui-elements-detection.pt",
+            local_dir="weights/screen2ax",
+        )
     macos_model = YOLO(macos_path)
     print("[YOLO] Screen2AX loaded.")
-    print("[YOLO] Both models ready.")
+
+    if os.environ.get("DISABLE_CLIP_MATCH") != "1":
+        try:
+            from transformers import CLIPModel, CLIPProcessor
+            print("[CLIP] Loading openai/clip-vit-base-patch32...")
+            clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+            clip_model.eval()
+            clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+            print("[CLIP] Loaded — semantic box matching enabled.")
+        except Exception as e:  # degrade gracefully: detection still works
+            print(f"[CLIP] load failed ({e}) — match_score disabled.")
+            clip_model = None
+            clip_processor = None
+    print("[YOLO] Service ready.")
 
 
 # ── Request/Response models ────────────────────────────────
@@ -66,6 +91,10 @@ class DetectedElement(BaseModel):
     confidence: float
     source: str     # "screen2ax" | "omniparser"
     ax_class: Optional[str]  # "AXButton" etc. from Screen2AX, None from OmniParser
+    # CLIP similarity of this box's crop vs the step's target text, softmaxed
+    # across all scored boxes (0-1, sums to ~1). None when CLIP is disabled or
+    # no target_label was sent. The box that best MEANS the target wins.
+    match_score: Optional[float] = None
 
 
 class DetectResponse(BaseModel):
@@ -73,6 +102,8 @@ class DetectResponse(BaseModel):
     omni_count: int
     macos_count: int
     merged_count: int
+    # True when match_score was computed for this request.
+    match_applied: bool = False
 
 
 # ── IoU helper ─────────────────────────────────────────────
@@ -127,6 +158,62 @@ def merge_results(omni_res, macos_res, img_size: tuple) -> list[dict]:
     return sorted(boxes, key=lambda b: b["confidence"], reverse=True)
 
 
+# ── CLIP semantic matching ─────────────────────────────────
+# How many top-confidence boxes get scored (bounds CPU latency: one batched
+# forward pass over N crops, ~200-400ms on CPU for 16).
+CLIP_MAX_BOXES = 16
+# Pad crops slightly — icons are tiny and CLIP benefits from a little context.
+CLIP_CROP_PAD = 0.15
+
+
+def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
+               step_instruction: str) -> None:
+    """Scores each box's crop against the target text and writes match_score
+    in place. Softmax across boxes → a RELATIVE 'which box means the target'
+    distribution, which is exactly what the caller needs to pick one."""
+    import torch
+
+    scored = sorted(boxes, key=lambda b: b["confidence"], reverse=True)[:CLIP_MAX_BOXES]
+    if not scored:
+        return
+
+    W, H = img.size
+    crops = []
+    for b in scored:
+        pad_w, pad_h = b["w"] * CLIP_CROP_PAD, b["h"] * CLIP_CROP_PAD
+        left = max(0, (b["x"] - pad_w) * W)
+        top = max(0, (b["y"] - pad_h) * H)
+        right = min(W, (b["x"] + b["w"] + pad_w) * W)
+        bottom = min(H, (b["y"] + b["h"] + pad_h) * H)
+        if right - left < 4 or bottom - top < 4:
+            crops.append(img.resize((32, 32)))  # degenerate box — placeholder crop
+        else:
+            crops.append(img.crop((left, top, right, bottom)))
+
+    # Two phrasings of the target; their embeddings are averaged. The plain
+    # label helps for text buttons, the template helps for icons.
+    texts = [target_label, f"the {target_label} button or icon in a user interface"]
+    if step_instruction:
+        texts.append(step_instruction)
+
+    with torch.no_grad():
+        text_in = clip_processor(text=texts, return_tensors="pt", padding=True, truncation=True)
+        text_emb = clip_model.get_text_features(**text_in)
+        text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
+        text_emb = text_emb.mean(dim=0, keepdim=True)
+        text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
+
+        img_in = clip_processor(images=crops, return_tensors="pt")
+        img_emb = clip_model.get_image_features(**img_in)
+        img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
+
+        sims = (img_emb @ text_emb.T).squeeze(1)          # cosine similarities
+        probs = torch.softmax(sims * 100.0, dim=0)        # CLIP-style temperature
+
+    for b, p in zip(scored, probs.tolist()):
+        b["match_score"] = round(p, 4)
+
+
 # ── Main detection endpoint ────────────────────────────────
 def run_omni(img: Image.Image):
     return omni_model(img, conf=0.25, verbose=False)[0]
@@ -160,12 +247,29 @@ async def detect(req: DetectRequest):
     merged = merge_results(omni_res, macos_res, img.size)
     print(f"[YOLO] Merged: {len(merged)} boxes after IoU dedup")
 
+    # Semantic matching: score boxes against the step's target text so the
+    # caller can pick the box that MEANS the target, not just any confident one.
+    match_applied = False
+    label = (req.target_label or "").strip()
+    if clip_model is not None and label:
+        try:
+            loop2 = asyncio.get_running_loop()
+            await loop2.run_in_executor(
+                executor, clip_match, img, merged, label, (req.step_instruction or "").strip()
+            )
+            match_applied = True
+            top = max((b.get("match_score") or 0) for b in merged) if merged else 0
+            print(f"[CLIP] matched '{label}' — top score {top:.2f}")
+        except Exception as e:
+            print(f"[CLIP] match failed ({e}) — returning unscored boxes")
+
     elements = [DetectedElement(**b) for b in merged]
     return DetectResponse(
         elements=elements,
         omni_count=omni_count,
         macos_count=macos_count,
         merged_count=len(merged),
+        match_applied=match_applied,
     )
 
 
@@ -175,6 +279,7 @@ def health():
         "status": "ok",
         "omni_loaded": omni_model is not None,
         "macos_loaded": macos_model is not None,
+        "clip_loaded": clip_model is not None,
     }
 
 
