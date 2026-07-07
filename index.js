@@ -120,9 +120,16 @@ app.post('/plan', planLimiter, async (req, res) => {
         return res.json({ ...cachedPlan, cached: true });
       }
 
+      // Optional live-screen grounding from the macOS client (AX-tree snapshot).
+      const screenContext = typeof req.body.screenContext === 'string'
+        ? req.body.screenContext : '';
+      if (screenContext) {
+        console.log(`Plan grounding (macOS): ${screenContext.length} chars of screen context`);
+      }
+
       let plan;
       try {
-        plan = await generateDesktopSteps(task);
+        plan = await generateDesktopSteps(task, screenContext);
       } catch (genError) {
         if (!isQuotaOrThrottleError(genError)) throw genError;
 
@@ -146,7 +153,10 @@ app.post('/plan', planLimiter, async (req, res) => {
       console.log(`Bedrock desktop response received, ${plan.steps?.length || 0} steps parsed`);
 
       // Store for next time (fire-and-forget; only cache non-empty plans).
-      if (plan.steps && plan.steps.length > 0) {
+      // Grounded plans are NOT cached: a plan that (correctly) skips opening
+      // the app because it was already frontmost would be wrong as the
+      // general cached answer for this task from a cold start.
+      if (plan.steps && plan.steps.length > 0 && !screenContext) {
         semanticPlanCache.storePlanInCache('macos', task, plan).then(() => {}, () => {});
       }
       return res.json(plan);

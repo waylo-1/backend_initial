@@ -91,11 +91,33 @@ async function generateEnrichedSteps(task) {
 
 // ── POST /plan (macOS desktop) ──────────────────────────────────────────────
 
-/** Generates the macOS desktop guide plan. Returns { task, app, steps }. */
-async function generateDesktopSteps(task) {
+/** Generates the macOS desktop guide plan. Returns { task, app, steps }.
+ *
+ * `screenContext` (optional): a compact snapshot of the user's LIVE screen —
+ * frontmost app, window title, and the visible interactive elements from the
+ * accessibility tree — sent by the macOS client. Grounding the planner in
+ * what is actually on screen means: no "open the app" step when it's already
+ * frontmost, and targetLabels copied from REAL visible labels instead of
+ * guessed ones (the #1 cause of detection misses). */
+async function generateDesktopSteps(task, screenContext) {
+  let prompt = `Task: ${task}`;
+  if (screenContext && typeof screenContext === 'string' && screenContext.trim()) {
+    // Cap so a huge tree can't blow the token budget.
+    const ctx = screenContext.trim().slice(0, 2400);
+    prompt += `
+
+Live screen snapshot (from the user's accessibility tree, captured just now):
+${ctx}
+
+Ground the plan in this snapshot:
+- If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state.
+- When a visible element in the snapshot matches a step's target, copy its EXACT title into targetLabel (real labels beat guessed ones).
+- If the task needs an app that is NOT in the snapshot, plan its launch normally (Dock/Spotlight).`;
+  }
+
   const text = await raw.askText({
     system: specs.getDesktopSystemPrompt(),
-    prompt: `Task: ${task}`,
+    prompt,
     maxTokens: 1500,
     temperature: 0.3,
   });
