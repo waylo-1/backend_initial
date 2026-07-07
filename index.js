@@ -331,6 +331,9 @@ app.post('/nova-vision', async (req, res) => {
       screenshot: image_base64,
       targetLabel: target_label,
       stepInstruction: step_instruction || '',
+      // Words the client's local OCR read — free grounding context (capped).
+      ocrContext: typeof req.body.ocr_context === 'string'
+        ? req.body.ocr_context.slice(0, 1200) : '',
     });
     return res.json(result);
   } catch (error) {

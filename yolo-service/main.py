@@ -20,11 +20,13 @@ executor = ThreadPoolExecutor(max_workers=2)
 
 omni_model: Optional[YOLO] = None
 macos_model: Optional[YOLO] = None
-# CLIP for semantic box↔label matching. YOLO boxes carry no text, so without
-# this the caller can't tell "the Bold icon" from any other icon. Optional:
-# set DISABLE_CLIP_MATCH=1 to skip loading (saves ~600MB RAM / startup time).
+# Vision-text model for semantic box↔label matching. YOLO boxes carry no
+# text, so without this the caller can't tell "the Bold icon" from any other
+# icon. MATCH_MODEL=siglip (default, better text-image matching) | clip |
+# off. DISABLE_CLIP_MATCH=1 also disables (legacy name, kept working).
 clip_model = None
 clip_processor = None
+match_model_name = ""
 
 
 @app.on_event("startup")
@@ -58,18 +60,34 @@ def load_models():
     macos_model = YOLO(macos_path)
     print("[YOLO] Screen2AX loaded.")
 
-    if os.environ.get("DISABLE_CLIP_MATCH") != "1":
-        try:
-            from transformers import CLIPModel, CLIPProcessor
-            print("[CLIP] Loading openai/clip-vit-base-patch32...")
-            clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-            clip_model.eval()
-            clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-            print("[CLIP] Loaded — semantic box matching enabled.")
-        except Exception as e:  # degrade gracefully: detection still works
-            print(f"[CLIP] load failed ({e}) — match_score disabled.")
-            clip_model = None
-            clip_processor = None
+    global match_model_name
+    requested = os.environ.get("MATCH_MODEL", "siglip").lower()
+    if os.environ.get("DISABLE_CLIP_MATCH") == "1" or requested == "off":
+        print("[MATCH] disabled by env.")
+    else:
+        # Try SigLIP first (stronger text-image matching at similar cost),
+        # fall back to CLIP, fall back to none — detection always works.
+        candidates = (["siglip", "clip"] if requested == "siglip" else ["clip"])
+        for name in candidates:
+            try:
+                if name == "siglip":
+                    from transformers import SiglipModel, SiglipProcessor
+                    print("[MATCH] Loading google/siglip-base-patch16-224...")
+                    clip_model = SiglipModel.from_pretrained("google/siglip-base-patch16-224")
+                    clip_processor = SiglipProcessor.from_pretrained("google/siglip-base-patch16-224")
+                else:
+                    from transformers import CLIPModel, CLIPProcessor
+                    print("[MATCH] Loading openai/clip-vit-base-patch32...")
+                    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+                    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+                clip_model.eval()
+                match_model_name = name
+                print(f"[MATCH] {name} loaded — semantic box matching enabled.")
+                break
+            except Exception as e:  # degrade gracefully
+                print(f"[MATCH] {name} load failed ({e})")
+                clip_model = None
+                clip_processor = None
     print("[YOLO] Service ready.")
 
 
@@ -197,7 +215,9 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
         texts.append(step_instruction)
 
     with torch.no_grad():
-        text_in = clip_processor(text=texts, return_tensors="pt", padding=True, truncation=True)
+        # SigLIP's tokenizer requires max_length padding for correct output.
+        pad = "max_length" if match_model_name == "siglip" else True
+        text_in = clip_processor(text=texts, return_tensors="pt", padding=pad, truncation=True)
         text_emb = clip_model.get_text_features(**text_in)
         text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
         text_emb = text_emb.mean(dim=0, keepdim=True)
@@ -280,6 +300,7 @@ def health():
         "omni_loaded": omni_model is not None,
         "macos_loaded": macos_model is not None,
         "clip_loaded": clip_model is not None,
+        "match_model": match_model_name,
     }
 
 

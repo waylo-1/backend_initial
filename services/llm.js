@@ -141,8 +141,8 @@ async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, 
 
 // ── POST /nova-vision (object-detection grounding) ──────────────────────────
 
-async function detectObject({ screenshot, targetLabel, stepInstruction }) {
-  const prompt = specs.getDetectionPrompt(targetLabel, stepInstruction);
+async function detectObject({ screenshot, targetLabel, stepInstruction, ocrContext }) {
+  const prompt = specs.getDetectionPrompt(targetLabel, stepInstruction, ocrContext);
 
   const text = await raw.askObjectDetection({
     prompt,

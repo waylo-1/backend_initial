@@ -490,8 +490,11 @@ Rules:
   repeated. Set "anchorText" to a distinctive nearby visible label (e.g. the
   section header "Login Password"), and "anchorPosition" to where the target sits
   relative to it: "below", "above", "left", "right", or "near". Example: the
-  "Change…" button → anchorText "Login Password", anchorPosition "right". Leave
-  both "" when the label alone is unambiguous.
+  "Change…" button → anchorText "Login Password", anchorPosition "right".
+  REQUIRED whenever "targetLabel" is 1–2 words or generic ("OK", "Done", "Save",
+  "Edit", "Empty", "Delete", "+", "Add", "New") — short labels repeat on real
+  screens far more often than you expect, and the anchor is what picks the
+  right one. Only leave both "" when the label is long and clearly unique.
 - For "type", "key" and "info" steps, set "targetLabel" to "".
 - "targetType" tells the app which detector to use. Use exactly one of:
     "text" — the target shows readable WORDS (a button, menu item, link, label,
@@ -647,8 +650,17 @@ function parseRecoveryResponse(rawText) {
 
 // ── Object detection (POST /nova-vision) ────────────────────────────────────
 
-function getDetectionPrompt(targetLabel, stepInstruction) {
+function getDetectionPrompt(targetLabel, stepInstruction, ocrContext) {
   const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max]}]}`;
+  // Words the client's local OCR already read for free — anchoring the vision
+  // model to real on-screen text narrows its search dramatically on busy screens.
+  const ocrSection = ocrContext
+    ? `
+
+## Visible text on this screen (read by on-device OCR)
+${ocrContext}
+The target is usually at or near its own label or these related words.`
+    : '';
   return `# Object Detection and Localization
 
 ## Objective
@@ -658,7 +670,7 @@ Detect and localize the specified UI element in this macOS screenshot.
 ${targetLabel}
 
 ## Context
-The user is trying to: ${stepInstruction}
+The user is trying to: ${stepInstruction}${ocrSection}
 
 ## Instructions
 - Analyze the screenshot and find the ONE UI element described above
