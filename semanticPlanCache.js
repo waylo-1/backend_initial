@@ -40,7 +40,10 @@ const PLAN_PROMPT_VERSIONS = {
   // instead of sideways swiping; added shortest-in-app-path rule (don't route
   // through Settings when a direct menu entry exists) — old cached plans may
   // still have swipe-paging fallbacks or Settings-routed detours.
-  android: 'v11',
+  // v12 (2026-07-07): instructions must name exactly ONE element, never hedge
+  // between layout variants ("tap either X or Y") — old cached plans may still
+  // contain confusing either/or instructions.
+  android: 'v12',
 };
 const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSIONS[platform] || PLAN_PROMPT_VERSIONS.macos}`;
 

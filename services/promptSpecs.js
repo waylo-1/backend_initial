@@ -140,6 +140,18 @@ For all other elements (search icons, send buttons, keyboard keys, etc.),
 corner language is still fine when you're actually confident, as in the
 examples below.
 
+ONE ELEMENT PER INSTRUCTION — never hedge between two possible UI layouts in a
+single instruction. An instruction must name exactly ONE element in plain words,
+picking your single most-likely guess:
+  BAD:  "Tap either your profile picture or the three lines menu."
+  GOOD: "Look for the red dot on your profile picture and tap it."
+Uncertainty about layout belongs in alternateLabels and visualDescription (which
+the app uses to search), NOT in the spoken instruction — a user reading two
+options aloud has no way to tell which one is actually on their screen. If you
+are unsure which of two elements the current app version uses, still commit to
+one plain-words description in "instruction", and list the other phrasing as an
+alternateLabel instead.
+
 COMPLETENESS — generate the FULL task to its real, finished end, not just the first
 part. A simple single-app task is typically 5 to 10 steps: open the app, THEN every
 remaining tap/type/submit step needed to reach the actual result (a message actually
