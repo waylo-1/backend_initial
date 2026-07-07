@@ -110,7 +110,7 @@ Live screen snapshot (from the user's accessibility tree, captured just now):
 ${ctx}
 
 Ground the plan in this snapshot:
-- If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state.
+- If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state, and set the plan's "app" field to that frontmost app's exact name.
 - When a visible element in the snapshot matches a step's target, copy its EXACT title into targetLabel (real labels beat guessed ones).
 - If the task needs an app that is NOT in the snapshot, plan its launch normally (Dock/Spotlight).`;
   }
