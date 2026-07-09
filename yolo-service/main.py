@@ -68,24 +68,28 @@ def load_models():
         # Try SigLIP first (stronger text-image matching at similar cost),
         # fall back to CLIP, fall back to none — detection always works.
         candidates = (["siglip", "clip"] if requested == "siglip" else ["clip"])
+        from transformers import AutoModel, AutoProcessor
+        repos = {
+            "siglip": "google/siglip-base-patch16-224",
+            "clip": "openai/clip-vit-base-patch32",
+        }
         for name in candidates:
             try:
-                if name == "siglip":
-                    from transformers import SiglipModel, SiglipProcessor
-                    print("[MATCH] Loading google/siglip-base-patch16-224...")
-                    clip_model = SiglipModel.from_pretrained("google/siglip-base-patch16-224")
-                    clip_processor = SiglipProcessor.from_pretrained("google/siglip-base-patch16-224")
-                else:
-                    from transformers import CLIPModel, CLIPProcessor
-                    print("[MATCH] Loading openai/clip-vit-base-patch32...")
-                    clip_model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-                    clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+                repo = repos[name]
+                print(f"[MATCH] Loading {repo}...")
+                # AutoModel/AutoProcessor avoids class-name import errors across
+                # transformers versions; use_fast=True skips the SentencePiece
+                # slow tokenizer path when a fast one exists.
+                clip_model = AutoModel.from_pretrained(repo)
+                clip_processor = AutoProcessor.from_pretrained(repo, use_fast=True)
                 clip_model.eval()
                 match_model_name = name
                 print(f"[MATCH] {name} loaded — semantic box matching enabled.")
                 break
             except Exception as e:  # degrade gracefully
-                print(f"[MATCH] {name} load failed ({e})")
+                import traceback
+                print(f"[MATCH] {name} load failed: {e}")
+                traceback.print_exc()
                 clip_model = None
                 clip_processor = None
     print("[YOLO] Service ready.")

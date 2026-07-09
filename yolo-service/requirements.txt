@@ -1,11 +1,18 @@
+# NOTE: ultralytics must be >=8.3 — modern OmniParser/Screen2AX checkpoints
+# contain layers (C3k2, …) that older ultralytics can't unpickle
+# ("Can't get attribute 'C3k2'"). Do NOT pin back to 8.2.x.
 fastapi==0.111.0
 uvicorn==0.30.1
-ultralytics==8.2.0
+ultralytics>=8.3.40
 opencv-python-headless
-huggingface_hub==0.23.4
+huggingface_hub>=0.23.4
 Pillow>=9.0.0
-pydantic==2.6.3
-pydantic-core==2.16.3
-# CLIP semantic box<->label matching (torch already comes via ultralytics).
-# Set DISABLE_CLIP_MATCH=1 to run without it.
+pydantic>=2.6.3
+
+# Semantic box<->label matching (MATCH_MODEL=siglip|clip|off).
+# transformers for the model classes; sentencepiece + protobuf are REQUIRED
+# by SigLIP's tokenizer (SiglipProcessor) — without them SigLIP fails to
+# load and the service silently falls back to CLIP / no matching.
 transformers>=4.41.0
+sentencepiece>=0.1.99
+protobuf>=3.20

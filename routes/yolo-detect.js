@@ -7,6 +7,9 @@ const express = require('express');
 const router = express.Router();
 
 const PYTHON_SERVICE_URL = process.env.YOLO_SERVICE_URL;
+// A CPU-only box running two YOLO models (plus optional CLIP/SigLIP matching)
+// legitimately needs more than the old 5s. Configurable via YOLO_TIMEOUT_MS.
+const YOLO_TIMEOUT_MS = parseInt(process.env.YOLO_TIMEOUT_MS || '12000', 10);
 
 router.post('/detect-elements', async (req, res) => {
   const { screenshot_b64, target_label, step_instruction, screen_region } = req.body || {};
@@ -21,7 +24,7 @@ router.post('/detect-elements', async (req, res) => {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const timeout = setTimeout(() => controller.abort(), YOLO_TIMEOUT_MS);
 
     const response = await fetch(`${PYTHON_SERVICE_URL}/detect`, {
       method: 'POST',
