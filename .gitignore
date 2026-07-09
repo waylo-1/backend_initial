@@ -37,3 +37,8 @@ temp/
 
 # Nested frontend repo (cloned here for local cross-repo work; has its own git remote)
 frontend_systemsettings_overlay/
+
+# Python
+__pycache__/
+*.pyc
+yolo-service/venv*/
