@@ -40,7 +40,10 @@ const PLAN_PROMPT_VERSIONS = {
   // v11 (2026-07-10): Pages "Format" is the toolbar PAINTBRUSH button (icon),
   // not the menu-bar Format menu; the colour control is the round colour WHEEL
   // to the RIGHT of the Text Colour swatch, not the swatch itself.
-  macos: 'v11',
+  // v12 (2026-07-10): elementDescription must be a SHORT object name, not a
+  // location sentence (the app feeds it to a vision model) — location goes in
+  // anchorText/anchorPosition. Old cached plans have verbose descriptions.
+  macos: 'v12',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

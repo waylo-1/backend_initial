@@ -519,6 +519,14 @@ Rules:
   and not nearby header/label text. Use exactly one of: "button", "menuItem",
   "checkbox", "tab", "link", "field", or "text" (plain text/label). For a button
   like "Change…" use "button".
+- KEEP "elementDescription" A SHORT OBJECT NAME, not a location sentence. Write
+  WHAT the control is in 2-5 words ("colour wheel icon", "Bold button", "Send
+  button"), and put WHERE it is in anchorText/anchorPosition — NEVER inside the
+  description. Bad: "The colour wheel icon located to the right of the Text
+  Colour row in the Style tab". Good: elementDescription "colour wheel icon",
+  anchorText "Text Colour", anchorPosition "right". The app sends the
+  description to a vision model as the thing to find, so a location sentence
+  makes it fail.
 - "anchorText" + "anchorPosition" DISAMBIGUATE a target whose label is short or
   repeated. Set "anchorText" to a distinctive nearby visible label (e.g. the
   section header "Login Password"), and "anchorPosition" to where the target sits
