@@ -57,7 +57,7 @@ const PLAN_PROMPT_VERSIONS = {
   // v12 (2026-07-07): instructions must name exactly ONE element, never hedge
   // between layout variants ("tap either X or Y") — old cached plans may still
   // contain confusing either/or instructions.
-  android: 'v12',
+  android: 'v13',
 };
 const versioned = (platform) => `${platform}__${PLAN_PROMPT_VERSIONS[platform] || PLAN_PROMPT_VERSIONS.macos}`;
 
