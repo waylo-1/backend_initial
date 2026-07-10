@@ -112,6 +112,10 @@ ${ctx}
 Ground the plan in this snapshot:
 - If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state, and set the plan's "app" field to that frontmost app's exact name.
 - When a visible element in the snapshot matches a step's target, copy its EXACT title into targetLabel (real labels beat guessed ones).
+- THE SNAPSHOT'S SPELLING WINS OVER YOURS. This Mac may be localized: if the Dock
+  list shows "Bin", write "Bin" (and "Empty Bin"), never "Trash"/"Empty Trash".
+  Same for "Settings" vs "Preferences". Copy the on-screen wording verbatim,
+  even when it differs from the US English name you would normally use.
 - If the task needs an app that is NOT in the snapshot, plan its launch normally (Dock/Spotlight).`;
   }
 

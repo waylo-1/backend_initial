@@ -113,10 +113,16 @@ class DetectedElement(BaseModel):
     confidence: float
     source: str     # "screen2ax" | "omniparser"
     ax_class: Optional[str]  # "AXButton" etc. from Screen2AX, None from OmniParser
-    # CLIP similarity of this box's crop vs the step's target text, softmaxed
-    # across all scored boxes (0-1, sums to ~1). None when CLIP is disabled or
-    # no target_label was sent. The box that best MEANS the target wins.
+    # RELATIVE score: similarity softmaxed across all scored boxes (sums to ~1).
+    # Tells you which box is most target-like — but a softmax ALWAYS crowns a
+    # winner, even when the target is absent from the image entirely.
     match_score: Optional[float] = None
+    # ABSOLUTE score: raw cosine similarity of this crop vs the target text
+    # (SigLIP: its calibrated sigmoid probability). This is what says "the
+    # target is actually HERE", independent of the other boxes. Callers must
+    # gate on this, or a screen without the target still yields a confident
+    # (and wrong) winner.
+    match_conf: Optional[float] = None
 
 
 class DetectResponse(BaseModel):
@@ -254,10 +260,21 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
         img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
 
         sims = (img_emb @ text_emb.T).squeeze(1)          # cosine similarities
-        probs = torch.softmax(sims * 100.0, dim=0)        # CLIP-style temperature
+        probs = torch.softmax(sims * 100.0, dim=0)        # relative: who wins
+        confs = sims                                       # absolute: is it here at all?
 
-    for b, p in zip(scored, probs.tolist()):
-        b["match_score"] = round(p, 4)
+        # SigLIP is trained with a sigmoid loss, so sigmoid(logit_scale * sim +
+        # logit_bias) is a CALIBRATED "does this image match this text"
+        # probability — exactly the absent-target check a softmax can't give.
+        if match_model_name == "siglip":
+            scale = getattr(clip_model, "logit_scale", None)
+            bias = getattr(clip_model, "logit_bias", None)
+            if scale is not None and bias is not None:
+                confs = torch.sigmoid(sims * scale.exp() + bias).squeeze(-1)
+
+    for b, p, c in zip(scored, probs.tolist(), confs.tolist()):
+        b["match_score"] = round(float(p), 4)
+        b["match_conf"] = round(float(c), 4)
 
 
 # ── Main detection endpoint ────────────────────────────────
@@ -304,8 +321,10 @@ async def detect(req: DetectRequest):
                 executor, clip_match, img, merged, label, (req.step_instruction or "").strip()
             )
             match_applied = True
-            top = max((b.get("match_score") or 0) for b in merged) if merged else 0
-            print(f"[CLIP] matched '{label}' — top score {top:.2f}")
+            if merged:
+                best = max(merged, key=lambda b: b.get("match_score") or 0)
+                print(f"[MATCH] '{label}' — top score {best.get('match_score'):.2f} "
+                      f"conf {best.get('match_conf'):.3f} (conf is the absent-target check)")
         except Exception as e:
             import traceback
             print(f"[CLIP] match failed ({type(e).__name__}: {e}) — returning unscored boxes")
