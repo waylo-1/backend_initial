@@ -224,6 +224,17 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
     tokenizer = getattr(clip_processor, "tokenizer", clip_processor)
     image_processor = getattr(clip_processor, "image_processor", clip_processor)
 
+    def as_embedding(out):
+        """transformers 4.x returns a Tensor from get_*_features; 5.x returns a
+        BaseModelOutputWithPooling. Accept either."""
+        if isinstance(out, torch.Tensor):
+            return out
+        for attr in ("pooler_output", "text_embeds", "image_embeds", "last_hidden_state"):
+            value = getattr(out, attr, None)
+            if isinstance(value, torch.Tensor):
+                return value if value.dim() == 2 else value.mean(dim=1)
+        raise TypeError(f"cannot extract embedding tensor from {type(out).__name__}")
+
     with torch.no_grad():
         if match_model_name == "siglip":
             # SigLIP is trained with fixed 64-token, max_length-padded input.
@@ -233,13 +244,13 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
         else:
             text_in = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
 
-        text_emb = clip_model.get_text_features(**text_in)
+        text_emb = as_embedding(clip_model.get_text_features(**text_in))
         text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
         text_emb = text_emb.mean(dim=0, keepdim=True)
         text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
 
         img_in = image_processor(images=crops, return_tensors="pt")
-        img_emb = clip_model.get_image_features(pixel_values=img_in["pixel_values"])
+        img_emb = as_embedding(clip_model.get_image_features(pixel_values=img_in["pixel_values"]))
         img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
 
         sims = (img_emb @ text_emb.T).squeeze(1)          # cosine similarities
