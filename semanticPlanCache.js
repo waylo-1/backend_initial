@@ -29,7 +29,11 @@ const QUOTA_FALLBACK_SIMILARITY_THRESHOLD = 0.85;
  * would still match.
  */
 const PLAN_PROMPT_VERSIONS = {
-  macos: 'v8',
+  // v9 (2026-07-10): submenus/galleries/pickers must get their own choosing
+  // step — old cached plans stop on the item that merely opens a chooser
+  // (e.g. "insert a table" ended at Insert > Table, leaving the style gallery
+  // open with nothing selected).
+  macos: 'v9',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

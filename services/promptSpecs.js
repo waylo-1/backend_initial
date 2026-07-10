@@ -426,6 +426,17 @@ before the task is truly done.
   finish (e.g. confirming a dialog, pressing Enter, clicking the final button).
 - Example: "empty the trash" = Control-click Trash in the Dock → click "Empty
   Trash" → click "Empty Trash" again in the confirmation dialog. All three steps.
+- SUBMENUS, GALLERIES AND PICKERS COUNT AS STEPS. Many menu items do not perform
+  the action — they open a submenu, a style gallery, a picker or a popover from
+  which the user must still CHOOSE something. Add that choosing step. Never end a
+  plan on the item that merely opens a chooser.
+    * "insert a table in Pages" = click "Insert" in the menu bar → click "Table"
+      → click a table style in the gallery that appears. THREE steps, not two.
+    * Same shape for: Insert > Chart, Insert > Shape, Format > Font, and any
+      "New from Template" flow — the final step is picking the option.
+  After writing the plan, ask yourself: "after my last step, is the task actually
+  DONE, or is a menu/gallery/dialog still open awaiting a choice?" If something is
+  still open, add the steps that close it out.
 - Think through the WHOLE flow to the end goal before writing the steps.
 
 Format:
