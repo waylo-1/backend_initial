@@ -218,17 +218,28 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
     if step_instruction:
         texts.append(step_instruction)
 
+    # Use the tokenizer / image processor DIRECTLY rather than the combined
+    # Processor.__call__, whose signature and returned keys shifted between
+    # transformers 4.x and 5.x. Pass each model only the tensors it needs.
+    tokenizer = getattr(clip_processor, "tokenizer", clip_processor)
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
+
     with torch.no_grad():
-        # SigLIP's tokenizer requires max_length padding for correct output.
-        pad = "max_length" if match_model_name == "siglip" else True
-        text_in = clip_processor(text=texts, return_tensors="pt", padding=pad, truncation=True)
+        if match_model_name == "siglip":
+            # SigLIP is trained with fixed 64-token, max_length-padded input.
+            text_in = tokenizer(texts, padding="max_length", max_length=64,
+                                truncation=True, return_tensors="pt")
+            text_in.pop("attention_mask", None)   # SigLIP text tower ignores it
+        else:
+            text_in = tokenizer(texts, padding=True, truncation=True, return_tensors="pt")
+
         text_emb = clip_model.get_text_features(**text_in)
         text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
         text_emb = text_emb.mean(dim=0, keepdim=True)
         text_emb = text_emb / text_emb.norm(dim=-1, keepdim=True)
 
-        img_in = clip_processor(images=crops, return_tensors="pt")
-        img_emb = clip_model.get_image_features(**img_in)
+        img_in = image_processor(images=crops, return_tensors="pt")
+        img_emb = clip_model.get_image_features(pixel_values=img_in["pixel_values"])
         img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
 
         sims = (img_emb @ text_emb.T).squeeze(1)          # cosine similarities
@@ -285,7 +296,9 @@ async def detect(req: DetectRequest):
             top = max((b.get("match_score") or 0) for b in merged) if merged else 0
             print(f"[CLIP] matched '{label}' — top score {top:.2f}")
         except Exception as e:
-            print(f"[CLIP] match failed ({e}) — returning unscored boxes")
+            import traceback
+            print(f"[CLIP] match failed ({type(e).__name__}: {e}) — returning unscored boxes")
+            traceback.print_exc()
 
     elements = [DetectedElement(**b) for b in merged]
     return DetectResponse(
