@@ -454,6 +454,16 @@ before the task is truly done.
     * Spotify — to make a playlist: click the "+" (Create) button in the LEFT
       sidebar, then choose "Playlist" from the small menu that appears, then type
       the name. There is no "Create Playlist" button.
+    * WhatsApp (desktop) — to send a photo/screenshot: (1) open the app; (2) an
+      info/choose step "click the chat with the person you want" (set
+      advanceOnAnyClick true, targetLabel ""); (3) click the "+" / attachment
+      (plus) button to the LEFT of the message box at the BOTTOM (targetType
+      icon; recent WhatsApp uses "+", older uses a paperclip — say "the + or
+      paperclip attachment button next to the message box"); (4) click "Photos &
+      Videos" (or "Document") in the little menu; (5) in the file picker that
+      opens, a choose step "select your screenshot" (advanceOnAnyClick true,
+      targetLabel ""; screenshots are usually on the Desktop or in Recents);
+      (6) click "Open"; (7) click the Send button. Keep ALL these steps.
     * Finder — the Trash/Bin lives at the END of the Dock; its window has an
       "Empty" button in the toolbar, and the confirmation button says "Empty Bin"
       or "Empty Trash" depending on the Mac's language.
@@ -519,6 +529,12 @@ Rules:
   and not nearby header/label text. Use exactly one of: "button", "menuItem",
   "checkbox", "tab", "link", "field", or "text" (plain text/label). For a button
   like "Change…" use "button".
+- USER-CHOICE STEPS: when a step needs the user to pick among equivalent items
+  only THEY can choose (which chat, which contact, which conversation, which
+  file/photo in a list/picker), set "advanceOnAnyClick": true and "targetLabel":
+  "", and describe it generically ("the chat with the person you want"). Do NOT
+  point at one specific item — Waylo can't know which one the user means, and it
+  will advance as soon as they click any. Also use this for "open any …" steps.
 - KEEP "elementDescription" A SHORT OBJECT NAME, not a location sentence. Write
   WHAT the control is in 2-5 words ("colour wheel icon", "Bold button", "Send
   button"), and put WHERE it is in anchorText/anchorPosition — NEVER inside the
@@ -576,6 +592,11 @@ function parseDesktopPlan(rawText) {
       anchorText: typeof s.anchorText === 'string' ? s.anchorText : '',
       anchorPosition: typeof s.anchorPosition === 'string' ? s.anchorPosition : '',
       key: typeof s.key === 'string' ? s.key : null,
+      // User-choice / wait fields — previously dropped here, so the client
+      // never advanced-on-any-click even when the planner asked for it.
+      advanceOnAnyClick: s.advanceOnAnyClick === true,
+      autoAdvanceSeconds: typeof s.autoAdvanceSeconds === 'number' ? s.autoAdvanceSeconds : 0,
+      silent: s.silent === true,
       // Keep findDescription for backward compatibility with older clients.
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
     }));
@@ -618,6 +639,14 @@ settings section the task uses:
 If the correct pane is ALREADY open, do not send the user to a different pane —
 the control is almost always further down the same pane (SCROLL) or under a
 slightly different label (RELABEL).
+
+WHEN YOU DO REPLAN, INCLUDE EVERY REMAINING STEP THROUGH THE FINAL GOAL — do not
+return a truncated list that stops partway. If the original task was "send a
+screenshot on WhatsApp" and the attachment button was the problem, the replan
+must still cover: attachment → Photos/Files → pick the file → Open → Send. A
+replan that drops the tail leaves the user stranded mid-task, which is worse
+than the original miss. Prefer RELABEL for a single wrong element; only REPLAN
+when the whole remaining path is wrong, and then make it COMPLETE.
 
 Return ONLY valid JSON, no markdown:
 {
