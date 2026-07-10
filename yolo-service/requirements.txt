@@ -1,3 +1,12 @@
+# INSTALL ORDER MATTERS on CPU-only servers (our EC2 box has no GPU and a
+# 20GB disk). Install CPU torch FIRST so ultralytics' torch dependency is
+# already satisfied — otherwise pip pulls GPU torch + the multi-GB CUDA
+# wheel stack (cudnn/nccl/cusparselt…) and fills the disk:
+#
+#   ./venv11/bin/pip install --no-cache-dir torch torchvision \
+#       --index-url https://download.pytorch.org/whl/cpu
+#   ./venv11/bin/pip install --no-cache-dir -r requirements.txt
+#
 # NOTE: ultralytics must be >=8.3 — modern OmniParser/Screen2AX checkpoints
 # contain layers (C3k2, …) that older ultralytics can't unpickle
 # ("Can't get attribute 'C3k2'"). Do NOT pin back to 8.2.x.
