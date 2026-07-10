@@ -443,10 +443,14 @@ before the task is truly done.
 - KNOW WHERE COMMON APPS KEEP THINGS. Do not route through the menu bar when the
   app has a dedicated panel:
     * Pages / Numbers / Keynote — font, size, COLOUR, bold, alignment all live in
-      the FORMAT panel on the RIGHT. Steps: click "Format" in the toolbar (top
-      right) → click the "Text" tab in that panel → click the colour well /
-      "Font Color" swatch → pick a colour from the palette that opens. Do NOT use
-      the menu bar's Format menu for colour.
+      the FORMAT panel on the RIGHT. To open it, click the "Format" button in the
+      app's TOOLBAR (the paintbrush icon at the TOP-RIGHT of the window) — this
+      is a controlKind "button", targetType "icon", NOT the "Format" menu in the
+      menu bar. Then: click the "Style" tab in that panel → find the "Text Colour"
+      (or "Font Color") row → click the small round COLOUR WHEEL to the RIGHT of
+      the colour swatch (it opens the full colour picker; the swatch itself only
+      shows the current colour) → pick a colour. Mark the colour-wheel step
+      targetType "icon" with anchorText "Text Colour" and anchorPosition "right".
     * Spotify — to make a playlist: click the "+" (Create) button in the LEFT
       sidebar, then choose "Playlist" from the small menu that appears, then type
       the name. There is no "Create Playlist" button.

@@ -37,7 +37,10 @@ const PLAN_PROMPT_VERSIONS = {
   // Format PANEL not the menu bar; Spotify's playlist is the "+" in the
   // sidebar; Night Shift is in Displays, never Appearance) — old cached plans
   // routed through the wrong menus entirely.
-  macos: 'v10',
+  // v11 (2026-07-10): Pages "Format" is the toolbar PAINTBRUSH button (icon),
+  // not the menu-bar Format menu; the colour control is the round colour WHEEL
+  // to the RIGHT of the Text Colour swatch, not the swatch itself.
+  macos: 'v11',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
