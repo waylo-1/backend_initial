@@ -416,6 +416,9 @@ before the task is truly done.
       — NOT "Users & Groups" (that pane only manages accounts).
     * Wi-Fi / network → "Wi-Fi" or "Network".
     * Screen brightness / resolution → "Displays".
+    * NIGHT SHIFT / blue light / warmer colours → "Displays", then the
+      "Night Shift…" button near the BOTTOM RIGHT of the Displays pane.
+      NEVER "Appearance" (that pane is only light/dark theme).
     * Dark mode / theme / wallpaper tint → "Appearance".
     * Notifications → "Notifications". Bluetooth → "Bluetooth".
   Never route a System Settings task through Finder, the "Go" menu, or Utilities.
@@ -437,6 +440,21 @@ before the task is truly done.
   After writing the plan, ask yourself: "after my last step, is the task actually
   DONE, or is a menu/gallery/dialog still open awaiting a choice?" If something is
   still open, add the steps that close it out.
+- KNOW WHERE COMMON APPS KEEP THINGS. Do not route through the menu bar when the
+  app has a dedicated panel:
+    * Pages / Numbers / Keynote — font, size, COLOUR, bold, alignment all live in
+      the FORMAT panel on the RIGHT. Steps: click "Format" in the toolbar (top
+      right) → click the "Text" tab in that panel → click the colour well /
+      "Font Color" swatch → pick a colour from the palette that opens. Do NOT use
+      the menu bar's Format menu for colour.
+    * Spotify — to make a playlist: click the "+" (Create) button in the LEFT
+      sidebar, then choose "Playlist" from the small menu that appears, then type
+      the name. There is no "Create Playlist" button.
+    * Finder — the Trash/Bin lives at the END of the Dock; its window has an
+      "Empty" button in the toolbar, and the confirmation button says "Empty Bin"
+      or "Empty Trash" depending on the Mac's language.
+  If you are not certain where a control lives in a given app, prefer the path
+  that starts from a panel or toolbar that is VISIBLE in the screen snapshot.
 - Think through the WHOLE flow to the end goal before writing the steps.
 
 Format:
@@ -580,10 +598,14 @@ correct your guidance accordingly.
 
 STRONGLY PREFER RELABEL or SCROLL. A REPLAN throws away the whole flow, so only
 replan if the screen is a genuinely different context. NEVER switch which
-settings section the task uses: to change a login/device PASSWORD the correct
-pane is "Touch ID & Password" (or "Login Password") — NEVER "Users & Groups".
-The element is usually just off-screen (scroll) or under a slightly different
-label (relabel).
+settings section the task uses:
+  - login/device PASSWORD → "Touch ID & Password" (or "Login Password"), NEVER
+    "Users & Groups".
+  - NIGHT SHIFT → "Displays" (the "Night Shift…" button sits at the bottom right
+    of that pane), NEVER "Appearance".
+If the correct pane is ALREADY open, do not send the user to a different pane —
+the control is almost always further down the same pane (SCROLL) or under a
+slightly different label (RELABEL).
 
 Return ONLY valid JSON, no markdown:
 {

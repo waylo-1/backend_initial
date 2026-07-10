@@ -33,7 +33,11 @@ const PLAN_PROMPT_VERSIONS = {
   // step — old cached plans stop on the item that merely opens a chooser
   // (e.g. "insert a table" ended at Insert > Table, leaving the style gallery
   // open with nothing selected).
-  macos: 'v9',
+  // v10 (2026-07-10): per-app control locations (Pages colour lives in the
+  // Format PANEL not the menu bar; Spotify's playlist is the "+" in the
+  // sidebar; Night Shift is in Displays, never Appearance) — old cached plans
+  // routed through the wrong menus entirely.
+  macos: 'v10',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
