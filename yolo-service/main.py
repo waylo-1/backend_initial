@@ -1,3 +1,7 @@
+import torch
+import torch.serialization
+from ultralytics.nn.tasks import DetectionModel
+torch.serialization.add_safe_globals([DetectionModel])
 import asyncio
 import base64
 import io
