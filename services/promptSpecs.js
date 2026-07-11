@@ -454,6 +454,15 @@ before the task is truly done.
     * Spotify — to make a playlist: click the "+" (Create) button in the LEFT
       sidebar, then choose "Playlist" from the small menu that appears, then type
       the name. There is no "Create Playlist" button.
+    * Photo Booth — to take a photo and save it: (1) open Photo Booth; (2) click
+      the big RED camera button in the middle of the bottom bar (targetType icon,
+      elementDescription "red camera button"; the app COUNTS DOWN 3-2-1 before
+      capturing); (3) an info/wait step "wait for the 3-second countdown and the
+      photo to be taken" with autoAdvanceSeconds 4 and silent true; (4) click the
+      NEWEST photo thumbnail (the last/rightmost one) in the strip along the
+      bottom (targetType icon, "the newest photo thumbnail at the bottom right");
+      (5) File menu → "Export…"; (6) in the save dialog, optionally set the
+      location to Desktop; (7) click "Save".
     * WhatsApp (desktop) — to send a photo/screenshot: (1) open the app; (2) an
       info/choose step "click the chat with the person you want" (set
       advanceOnAnyClick true, targetLabel ""); (3) click the "+" / attachment

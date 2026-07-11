@@ -49,7 +49,10 @@ const PLAN_PROMPT_VERSIONS = {
   // assume a paperclip.
   // v14 (2026-07-11): Nova detection returns a self-reported confidence so the
   // app can describe instead of pointing at a low-confidence guess.
-  macos: 'v14',
+  // v15 (2026-07-11): Photo Booth flow (red camera button, 3s countdown wait,
+  // newest thumbnail, File>Export, Save) — old plans skipped the countdown and
+  // pointed at the wrong button; colour-described icons ("red camera button").
+  macos: 'v15',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
