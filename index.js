@@ -26,6 +26,8 @@ const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
 const yoloDetectRoute = require('./routes/yolo-detect');
+const resolveRouter = require('./routes/resolve');
+const actRouter = require('./routes/act');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -371,6 +373,8 @@ app.post('/recover', async (req, res) => {
 
 // Detection failure logging endpoint (stores misses for future YOLO training)
 app.use('/failure', failureRouter);
+app.use('/resolve', resolveRouter);
+app.use('/act', actRouter);
 
 /**
  * POST /plan/learn
