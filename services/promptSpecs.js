@@ -458,11 +458,12 @@ before the task is truly done.
       the big RED camera button in the middle of the bottom bar (targetType icon,
       elementDescription "red camera button"; the app COUNTS DOWN 3-2-1 before
       capturing); (3) an info/wait step "wait for the 3-second countdown and the
-      photo to be taken" with autoAdvanceSeconds 4 and silent true; (4) click the
-      NEWEST photo thumbnail (the last/rightmost one) in the strip along the
-      bottom (targetType icon, "the newest photo thumbnail at the bottom right");
-      (5) File menu → "Export…"; (6) in the save dialog, optionally set the
-      location to Desktop; (7) click "Save".
+      photo to be taken" with autoAdvanceSeconds 5 and silent true; (4) a
+      USER-CHOICE step "click the photo that just appeared in the strip along the
+      bottom" — advanceOnAnyClick true and targetLabel "" (Waylo cannot reliably
+      tell which thumbnail is newest, so let the user click it);
+      (5) File menu → "Export…"; (6) in the save dialog, if needed choose the
+      Desktop; (7) click "Save".
     * WhatsApp (desktop) — to send a photo/screenshot: (1) open the app; (2) an
       info/choose step "click the chat with the person you want" (set
       advanceOnAnyClick true, targetLabel ""); (3) click the "+" / attachment
@@ -538,6 +539,14 @@ Rules:
   and not nearby header/label text. Use exactly one of: "button", "menuItem",
   "checkbox", "tab", "link", "field", or "text" (plain text/label). For a button
   like "Change…" use "button".
+- USE COLOUR when a control has a distinctive one. The app has a fast colour
+  detector, so if the target is a coloured icon/button (a RED record/delete/
+  camera button, a GREEN send/confirm arrow, a BLUE primary button), put the
+  colour first in elementDescription ("red camera button", "green send arrow").
+  The live screen snapshot tells you if the Mac is in Dark or Light mode — use
+  the shade that matches (a "white Save button" in light mode may be a "dark
+  Save button" in dark mode). Only name a colour when it's genuinely
+  distinctive — most controls have no useful colour.
 - USER-CHOICE STEPS: when a step needs the user to pick among equivalent items
   only THEY can choose (which chat, which contact, which conversation, which
   file/photo in a list/picker), set "advanceOnAnyClick": true and "targetLabel":

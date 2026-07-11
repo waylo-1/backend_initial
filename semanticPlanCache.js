@@ -52,7 +52,9 @@ const PLAN_PROMPT_VERSIONS = {
   // v15 (2026-07-11): Photo Booth flow (red camera button, 3s countdown wait,
   // newest thumbnail, File>Export, Save) — old plans skipped the countdown and
   // pointed at the wrong button; colour-described icons ("red camera button").
-  macos: 'v15',
+  // v16 (2026-07-11): colour-first descriptions for distinctive controls +
+  // dark/light-aware shades; Photo Booth thumbnail is a user-choice step.
+  macos: 'v16',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
