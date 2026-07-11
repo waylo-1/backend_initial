@@ -725,7 +725,7 @@ function parseRecoveryResponse(rawText) {
 // ── Object detection (POST /nova-vision) ────────────────────────────────────
 
 function getDetectionPrompt(targetLabel, stepInstruction, ocrContext) {
-  const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max]}]}`;
+  const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max], "confidence": 0.0}]}`;
   // Words the client's local OCR already read for free — anchoring the vision
   // model to real on-screen text narrows its search dramatically on busy screens.
   const ocrSection = ocrContext
@@ -753,6 +753,12 @@ The user is trying to: ${stepInstruction}${ocrSection}
 - Fit the bounding box tightly around just that element (not its surrounding container or row)
 - Do not output duplicate or overlapping bounding boxes
 - Be conservative: if you are not reasonably confident the element is actually present, return an empty list rather than guessing
+- REPORT YOUR CONFIDENCE honestly as "confidence" (0.0-1.0): how sure you are
+  that the box is the EXACT element described, not just something vaguely
+  similar. A tiny unlabelled icon you're guessing at = low (0.2-0.4). A clearly
+  visible, unambiguous match = high (0.8-1.0). It is far better to report low
+  confidence (the app will then ask the user for help) than to confidently
+  point at the wrong icon.
 - Coordinates use format [x_min, y_min, x_max, y_max] where:
   * (x_min, y_min) is the top-left corner
   * (x_max, y_max) is the bottom-right corner
@@ -789,10 +795,12 @@ function parseDetectionResponse(rawText, targetLabel) {
 
   const first = detections[0];
   let bbox;
+  let confidence = null;
   if (Array.isArray(first)) {
     bbox = first;
-  } else if (Array.isArray(first && first.bbox)) {
+  } else if (first && Array.isArray(first.bbox)) {
     bbox = first.bbox;
+    if (typeof first.confidence === 'number') confidence = first.confidence;
   } else {
     return { found: false };
   }
@@ -804,7 +812,7 @@ function parseDetectionResponse(rawText, targetLabel) {
     return { found: false };
   }
 
-  return { found: true, bbox, label: targetLabel };
+  return { found: true, bbox, label: targetLabel, confidence };
 }
 
 // ── Concept Q&A (POST /qa, POST /ask-screen) ────────────────────────────────

@@ -47,7 +47,9 @@ const PLAN_PROMPT_VERSIONS = {
   // WhatsApp send-photo flow (attachment=+/paperclip, Photos&Videos, file
   // picker, Open, Send) spelled out. Old cached plans point at one chat and
   // assume a paperclip.
-  macos: 'v13',
+  // v14 (2026-07-11): Nova detection returns a self-reported confidence so the
+  // app can describe instead of pointing at a low-confidence guess.
+  macos: 'v14',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
