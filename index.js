@@ -30,6 +30,7 @@ const resolveRouter = require('./routes/resolve');
 const actRouter = require('./routes/act');
 const actVisionRouter = require('./routes/act-vision');
 const actComputerRouter = require('./routes/act-computer');
+const iconMemoryRouter = require('./routes/icon-memory');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -379,6 +380,7 @@ app.use('/resolve', resolveRouter);
 app.use('/act', actRouter);
 app.use('/act-vision', actVisionRouter);
 app.use('/act-computer', actComputerRouter);
+app.use('/icon', iconMemoryRouter);
 
 /**
  * POST /plan/learn
