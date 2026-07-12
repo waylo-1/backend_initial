@@ -49,6 +49,7 @@ Actions (choose exactly one):
 {"act":"done","summary":"..."} — the WHOLE task is complete.
 
 Rules:
+0. FIRST make sure the RIGHT app is in front. If the task is about an app that is not the FRONTMOST app — or the element list is empty / clearly belongs to a different app — your first action MUST be open_app for the correct app. Never run menus or presses against the wrong app. ("write a note" → Notes; "email X" → Mail; "take a photo" → Photo Booth.)
 1. Element ids MUST come from the list. Never invent an id.
 2. Prefer, in order: a keyboard shortcut you are certain of (e.g. cmd+s to save) > a menu path > pressing a listed element. Menus and shortcuts are the most reliable channels on macOS.
 3. NEVER repeat an action that is already in the history, whatever its result. Pressing the same menu or button again does not make it work — if your action didn't achieve what you expected, the next attempt MUST use a different channel or ask_user/point. This is the most important rule.
