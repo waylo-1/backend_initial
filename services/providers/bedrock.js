@@ -96,10 +96,10 @@ async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, mo
   });
 }
 
-/** Single-image call. Uses Nova Lite. */
-async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3 }) {
+/** Single-image call. Uses Nova Lite unless modelId overrides. */
+async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId }) {
   return converse({
-    modelId: VISION_MODEL_ID,
+    modelId: modelId || VISION_MODEL_ID,
     system,
     content: [
       { text: prompt },
