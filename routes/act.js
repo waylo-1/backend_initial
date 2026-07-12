@@ -43,21 +43,23 @@ Actions (choose exactly one):
 {"act":"menu","path":["File","Export…"],"say":"..."} — invoke a menu-bar item by exact path. Works even if not in the element list; menus are ALWAYS reachable this way.
 {"act":"open_app","name":"Photo Booth","say":"..."} — launch or focus an app.
 {"act":"scroll","direction":"down","say":"..."} — scroll the frontmost window.
-{"act":"wait","seconds":3,"say":"..."} — wait (countdowns, loading).
+{"act":"wait","seconds":3,"say":"..."} — wait (countdowns, capture timers, loading).
+{"act":"point","id":<n>,"question":"..."} — the USER must click this themselves (a personal choice among similar items, or something you can see but they should decide). The app draws an outline on element #n, speaks the question, waits for their click, then you get the next turn.
+{"act":"ask_user","question":"..."} — you need the user to DO something you can't (log in, pick something not in the list, drag). They will do it and the loop CONTINUES — you get another turn after. Phrase it as a doable instruction.
 {"act":"done","summary":"..."} — the WHOLE task is complete.
-{"act":"ask_user","question":"..."} — you need the user: a personal choice (which chat/photo/file), a login, or you are genuinely stuck.
 
 Rules:
 1. Element ids MUST come from the list. Never invent an id.
 2. Prefer, in order: a keyboard shortcut you are certain of (e.g. cmd+s to save) > a menu path > pressing a listed element. Menus and shortcuts are the most reliable channels on macOS.
-3. The history shows each action's RESULT. If an action produced "no visible change", do NOT repeat it — try a different channel (menu instead of button, shortcut instead of menu).
-4. Add "confirm":true to any action that sends, deletes, empties, pays, posts, shares, or otherwise acts irreversibly or outward. The app will ask the user before executing.
-5. Personal choices are the user's: which chat, which photo, which contact, which file → ask_user, never guess.
-6. "say" is spoken aloud: one short, friendly, present-tense sentence ("Opening the File menu"). No jargon.
-7. Use menu paths with the app's EXACT current menu titles when visible in the element list or context; otherwise standard macOS names.
-8. Say done only when the FULL task is finished, not after a promising step.
-9. If the same approach failed twice, change strategy or ask_user. Never loop.
-10. Typing into a search field usually needs submit:true to run the search.`;
+3. NEVER repeat an action that is already in the history, whatever its result. Pressing the same menu or button again does not make it work — if your action didn't achieve what you expected, the next attempt MUST use a different channel or ask_user/point. This is the most important rule.
+4. AXPress reports success even when it achieves nothing (disabled menus, sheets already open). Trust the ELEMENT LIST, not the action result: after opening a dialog, the list will contain its Save/Cancel buttons — act on those.
+5. Actions that start a timed process (camera countdown, capture, export, loading) show no immediate change — use wait (3-5s) after them instead of re-triggering. Example: after pressing a camera/record/take-photo button, the countdown is invisible to the element list; the ONLY correct next action is {"act":"wait","seconds":4}. Pressing it again cancels or retakes.
+6. Add "confirm":true to any action that sends, deletes, empties, pays, posts, shares, or otherwise acts irreversibly or outward. The app will ask the user before executing.
+7. Personal choices are the user's: which chat, which photo, which contact, which file. When the choices (or their area) appear in the element list, use point with one of their ids — the outline shows the user where to look; otherwise ask_user. Never guess for them.
+8. "say" is spoken aloud: one short, friendly, present-tense sentence ("Opening the File menu"). No jargon.
+9. Use menu paths with the app's EXACT current menu titles when visible in the element list or context; otherwise standard macOS names.
+10. Say done only when the FULL task is finished. A save/export is finished once the Save button was pressed and the dialog's elements are GONE from the list.
+11. Typing into a search field usually needs submit:true to run the search.`;
 
 function fmtElements(elements) {
   if (!Array.isArray(elements) || elements.length === 0) return '(none — the app exposes no accessibility elements)';
@@ -101,7 +103,7 @@ Reply with the single JSON action for the next step.`;
       const m = String(rawText).match(/\{[\s\S]*\}/);
       if (m) { try { action = JSON.parse(m[0]); } catch { /* fall through */ } }
     }
-    const valid = new Set(['press', 'type', 'key', 'menu', 'open_app', 'scroll', 'wait', 'done', 'ask_user']);
+    const valid = new Set(['press', 'type', 'key', 'menu', 'open_app', 'scroll', 'wait', 'done', 'ask_user', 'point']);
     if (!action || !valid.has(action.act)) {
       return res.json({ act: 'ask_user', question: "I'm not sure what to do next — can you tell me more?" });
     }
