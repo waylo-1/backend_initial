@@ -98,14 +98,14 @@ ${hist}
 
 Reply with the single JSON action for the next step.`;
 
-    // The decider is the brain of agent mode — it must NOT run on the cheap
-    // plan-generation model (askText's default is Nova MICRO, which repeats
-    // actions despite explicit rules; that caused the Export×9 loop).
-    // Preference: AGENT_MODEL_ID (e.g. a Claude model) > BEDROCK_MODEL_ID
-    // (the main model) > provider default.
+    // The decider is the brain of agent mode. AGENT_MODEL_ID picks a strong,
+    // PROVIDER-APPROPRIATE model (a Bedrock id when AI_PROVIDER=bedrock, a
+    // Gemini id when =gemini). When unset it uses the provider's default text
+    // model — fine on Gemini (set GEMINI_TEXT_MODEL to a capable model), but on
+    // Bedrock that default is Nova Micro, so set AGENT_MODEL_ID there.
     const rawText = await askText({
       system: SYSTEM, prompt, maxTokens: 300, temperature: 0.1,
-      modelId: process.env.AGENT_MODEL_ID || process.env.BEDROCK_MODEL_ID || undefined,
+      modelId: process.env.AGENT_MODEL_ID || undefined,
     });
     let action;
     try {

@@ -77,9 +77,11 @@ ${hist}
 
 Look at the screenshot, then reply with the single JSON action for the next step.`;
 
+    // AGENT_VISION_MODEL_ID (provider-appropriate) overrides; else the
+    // provider's default vision model (set GEMINI_VISION_MODEL on Gemini).
     const rawText = await askVision({
       system: SYSTEM, prompt, imageBase64, maxTokens: 300, temperature: 0.1,
-      modelId: process.env.AGENT_VISION_MODEL_ID || process.env.BEDROCK_VISION_MODEL_ID || undefined,
+      modelId: process.env.AGENT_VISION_MODEL_ID || undefined,
     });
 
     let action;

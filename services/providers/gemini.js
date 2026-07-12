@@ -51,10 +51,10 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
   return text;
 }
 
-/** Text-only call (no image). */
-async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3 }) {
+/** Text-only call (no image). `modelId` overrides the default text model. */
+async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId }) {
   return generateContent({
-    model: TEXT_MODEL,
+    model: modelId || TEXT_MODEL,
     system,
     parts: [{ text: prompt }],
     maxTokens,
@@ -62,10 +62,10 @@ async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3 }) 
   });
 }
 
-/** Single-image call. */
-async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3 }) {
+/** Single-image call. `modelId` overrides the default vision model. */
+async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId }) {
   return generateContent({
-    model: VISION_MODEL,
+    model: modelId || VISION_MODEL,
     system,
     parts: [
       { text: prompt },
@@ -77,9 +77,9 @@ async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temper
 }
 
 /** Object-detection call (bbox grounding). */
-async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0 }) {
+async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0, modelId }) {
   return generateContent({
-    model: VISION_MODEL,
+    model: modelId || VISION_MODEL,
     parts: [
       { inlineData: { mimeType: 'image/jpeg', data: imageBase64 } },
       { text: prompt },
