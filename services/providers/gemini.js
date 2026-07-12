@@ -31,7 +31,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = 4;
 
-async function generateContent({ model, system, parts, maxTokens = 1500, temperature = 0.3, json = false }) {
+async function generateContent({ model, system, parts, maxTokens = 1500, temperature = 0.3, json = false, thinkingBudget }) {
   const body = {
     contents: [{ role: 'user', parts }],
     generationConfig: { temperature, maxOutputTokens: maxTokens },
@@ -40,6 +40,13 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
   // parse it — Gemini otherwise adds "Sure, here's…" and breaks JSON.parse.
   if (json) {
     body.generationConfig.responseMimeType = 'application/json';
+  }
+  // COST: Gemini spends hidden "thinking" tokens on every call (a 5-token
+  // answer once cost 266 thought tokens). Simple lookups (detection, Q&A)
+  // don't need it — a budget of 0 cuts those calls' cost several-fold.
+  // Defensive: if the API rejects the field, we strip it and retry once.
+  if (thinkingBudget !== undefined && process.env.GEMINI_DISABLE_THINKING_LIMIT !== '1') {
+    body.generationConfig.thinkingConfig = { thinkingBudget };
   }
   if (system) {
     body.systemInstruction = { parts: [{ text: system }] };
@@ -54,6 +61,13 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
     });
     if (res.ok) break;
     errText = await res.text();
+    // Model/API variant rejects thinkingConfig → strip it and retry immediately.
+    if (res.status === 400 && body.generationConfig.thinkingConfig
+        && /thinking/i.test(errText || '')) {
+      console.warn('[gemini] thinkingConfig rejected by API — retrying without it');
+      delete body.generationConfig.thinkingConfig;
+      continue;
+    }
     if (attempt < MAX_ATTEMPTS && RETRY_STATUSES.has(res.status)) {
       const wait = Math.round(400 * 2 ** (attempt - 1) + Math.random() * 300); // 0.4s,0.8s,1.6s +jitter
       console.warn(`[gemini] ${model} ${res.status} — retry ${attempt}/${MAX_ATTEMPTS - 1} in ${wait}ms`);
@@ -76,7 +90,7 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
 }
 
 /** Text-only call (no image). `modelId` overrides the model; `json` forces JSON. */
-async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId, json = false }) {
+async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId, json = false, thinkingBudget }) {
   return generateContent({
     model: modelId || TEXT_MODEL,
     system,
@@ -84,11 +98,12 @@ async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, mo
     maxTokens,
     temperature,
     json,
+    thinkingBudget,
   });
 }
 
 /** Single-image call. `modelId` overrides the model; `json` forces JSON. */
-async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId, json = false }) {
+async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId, json = false, thinkingBudget }) {
   return generateContent({
     model: modelId || VISION_MODEL,
     system,
@@ -99,11 +114,12 @@ async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temper
     maxTokens,
     temperature,
     json,
+    thinkingBudget,
   });
 }
 
 /** Object-detection call (bbox grounding). */
-async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0, modelId, json = false }) {
+async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0, modelId, json = false, thinkingBudget }) {
   return generateContent({
     model: modelId || VISION_MODEL,
     parts: [
@@ -113,6 +129,7 @@ async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temper
     maxTokens,
     temperature,
     json,
+    thinkingBudget,
   });
 }
 

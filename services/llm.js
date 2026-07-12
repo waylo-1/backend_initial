@@ -159,6 +159,9 @@ async function detectObject({ screenshot, targetLabel, stepInstruction, ocrConte
     maxTokens: 1200,
     temperature: 0.0,
     json: true,
+    // Grounding is perception, not reasoning — thinking tokens are pure cost
+    // on this HIGH-FREQUENCY call (teach-mode vision fallback).
+    thinkingBudget: 0,
   });
 
   if (process.env.NOVA_DEBUG) console.log('[detectObject] RAW:', text);
@@ -173,6 +176,7 @@ async function answerConcept({ question, appName }) {
     prompt: question,
     maxTokens: 200,
     temperature: 0.3,
+    thinkingBudget: 0,   // a spoken one-liner needs no hidden reasoning spend
   });
   return text.trim();
 }
@@ -184,6 +188,7 @@ async function answerWithScreen({ question, screenshot, appName }) {
     imageBase64: screenshot,
     maxTokens: 400,
     temperature: 0.3,
+    thinkingBudget: 0,
   });
   return text.trim();
 }
