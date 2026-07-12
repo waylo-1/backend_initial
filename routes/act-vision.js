@@ -47,7 +47,14 @@ Rules:
 
 function fmtMarks(marks) {
   if (!Array.isArray(marks) || marks.length === 0) return '(no elements detected)';
-  return marks.map((m) => `#${m.id}${m.kind ? ` ${m.kind}` : ''} @${m.pos}`).join('  ');
+  // `label` is a best-guess icon concept (e.g. "search", "attach") — a hint,
+  // not ground truth; always confirm against the image.
+  return marks.map((m) => {
+    let s = `#${m.id}`;
+    if (m.label) s += ` maybe:${m.label}`;
+    if (m.kind) s += ` ${m.kind}`;
+    return `${s} @${m.pos}`;
+  }).join('  ');
 }
 
 router.post('/', async (req, res) => {

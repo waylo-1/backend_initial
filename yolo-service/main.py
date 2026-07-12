@@ -96,6 +96,7 @@ def load_models():
                 traceback.print_exc()
                 clip_model = None
                 clip_processor = None
+    build_icon_vocab()
     print("[YOLO] Service ready.")
 
 
@@ -127,6 +128,9 @@ class DetectedElement(BaseModel):
     # gate on this, or a screen without the target still yields a confident
     # (and wrong) winner.
     match_conf: Optional[float] = None
+    # Tier 2: zero-shot concept label ("search", "attach") for a textless icon,
+    # or None when no vocabulary concept matched distinctly.
+    caption: Optional[str] = None
 
 
 class DetectResponse(BaseModel):
@@ -198,6 +202,36 @@ CLIP_MAX_BOXES = 16
 CLIP_CROP_PAD = 0.15
 
 
+def _as_embedding(out):
+    """transformers 4.x returns a Tensor from get_*_features; 5.x returns a
+    BaseModelOutputWithPooling. Accept either."""
+    import torch
+    if isinstance(out, torch.Tensor):
+        return out
+    for attr in ("pooler_output", "text_embeds", "image_embeds", "last_hidden_state"):
+        value = getattr(out, attr, None)
+        if isinstance(value, torch.Tensor):
+            return value if value.dim() == 2 else value.mean(dim=1)
+    raise TypeError(f"cannot extract embedding tensor from {type(out).__name__}")
+
+
+def _crop_boxes(img: Image.Image, boxes: list[dict]) -> list[Image.Image]:
+    """Padded crops for a set of normalized boxes (icons benefit from context)."""
+    W, H = img.size
+    crops = []
+    for b in boxes:
+        pad_w, pad_h = b["w"] * CLIP_CROP_PAD, b["h"] * CLIP_CROP_PAD
+        left = max(0, (b["x"] - pad_w) * W)
+        top = max(0, (b["y"] - pad_h) * H)
+        right = min(W, (b["x"] + b["w"] + pad_w) * W)
+        bottom = min(H, (b["y"] + b["h"] + pad_h) * H)
+        if right - left < 4 or bottom - top < 4:
+            crops.append(img.resize((32, 32)))  # degenerate box — placeholder crop
+        else:
+            crops.append(img.crop((left, top, right, bottom)))
+    return crops
+
+
 def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
                step_instruction: str) -> None:
     """Scores each box's crop against the target text and writes match_score
@@ -209,18 +243,7 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
     if not scored:
         return
 
-    W, H = img.size
-    crops = []
-    for b in scored:
-        pad_w, pad_h = b["w"] * CLIP_CROP_PAD, b["h"] * CLIP_CROP_PAD
-        left = max(0, (b["x"] - pad_w) * W)
-        top = max(0, (b["y"] - pad_h) * H)
-        right = min(W, (b["x"] + b["w"] + pad_w) * W)
-        bottom = min(H, (b["y"] + b["h"] + pad_h) * H)
-        if right - left < 4 or bottom - top < 4:
-            crops.append(img.resize((32, 32)))  # degenerate box — placeholder crop
-        else:
-            crops.append(img.crop((left, top, right, bottom)))
+    crops = _crop_boxes(img, scored)
 
     # Two phrasings of the target; their embeddings are averaged. The plain
     # label helps for text buttons, the template helps for icons.
@@ -233,17 +256,7 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
     # transformers 4.x and 5.x. Pass each model only the tensors it needs.
     tokenizer = getattr(clip_processor, "tokenizer", clip_processor)
     image_processor = getattr(clip_processor, "image_processor", clip_processor)
-
-    def as_embedding(out):
-        """transformers 4.x returns a Tensor from get_*_features; 5.x returns a
-        BaseModelOutputWithPooling. Accept either."""
-        if isinstance(out, torch.Tensor):
-            return out
-        for attr in ("pooler_output", "text_embeds", "image_embeds", "last_hidden_state"):
-            value = getattr(out, attr, None)
-            if isinstance(value, torch.Tensor):
-                return value if value.dim() == 2 else value.mean(dim=1)
-        raise TypeError(f"cannot extract embedding tensor from {type(out).__name__}")
+    as_embedding = _as_embedding
 
     with torch.no_grad():
         if match_model_name == "siglip":
@@ -279,6 +292,103 @@ def clip_match(img: Image.Image, boxes: list[dict], target_label: str,
     for b, p, c in zip(scored, probs.tolist(), confs.tolist()):
         b["match_score"] = round(float(p), 4)
         b["match_conf"] = round(float(c), 4)
+
+
+# ── Zero-shot icon captioning (Tier 2) ─────────────────────
+# Turn each textless icon into TEXT by picking its closest concept from a fixed
+# vocabulary (OmniParser's caption-first idea, done cheaply by reusing SigLIP as
+# a zero-shot classifier — no extra model, no GPU). The caption rides along on
+# each box so the Set-of-Mark decider sees "#7 search, #8 attach" instead of
+# guessing from pixels alone.
+ICON_VOCAB = [
+    ("search", "a search or magnifying-glass icon"),
+    ("settings", "a settings gear icon"),
+    ("add", "an add or plus icon"),
+    ("close", "a close or X icon"),
+    ("menu", "a hamburger menu icon with stacked lines"),
+    ("more options", "a three-dots more-options icon"),
+    ("back", "a back or left-arrow icon"),
+    ("forward", "a forward or right-arrow icon"),
+    ("home", "a home icon"),
+    ("attach", "a paperclip attachment icon"),
+    ("send", "a send or paper-plane icon"),
+    ("microphone", "a microphone voice icon"),
+    ("camera", "a camera or take-photo icon"),
+    ("image", "a photo or image icon"),
+    ("emoji", "a smiley-face emoji icon"),
+    ("play", "a play triangle icon"),
+    ("pause", "a pause icon"),
+    ("next", "a next-track skip-forward icon"),
+    ("previous", "a previous-track skip-back icon"),
+    ("download", "a download icon"),
+    ("share", "a share icon"),
+    ("delete", "a delete or trash-can icon"),
+    ("edit", "an edit or pencil icon"),
+    ("like", "a heart or like icon"),
+    ("bookmark", "a star or bookmark icon"),
+    ("notifications", "a bell notifications icon"),
+    ("profile", "a person or profile-avatar icon"),
+    ("calendar", "a calendar icon"),
+    ("location", "a location map-pin icon"),
+    ("filter", "a filter icon"),
+    ("refresh", "a refresh or reload icon"),
+    ("expand", "a chevron-down expand icon"),
+    ("checkmark", "a checkmark or tick icon"),
+    ("info", "an information icon"),
+    ("lock", "a padlock lock icon"),
+    ("show", "an eye show/hide icon"),
+]
+icon_vocab_emb = None  # torch tensor [V, D], L2-normalized
+
+
+def build_icon_vocab():
+    """Embed the icon vocabulary once at startup (reuses the match model)."""
+    global icon_vocab_emb
+    if clip_model is None:
+        return
+    import torch
+    tokenizer = getattr(clip_processor, "tokenizer", clip_processor)
+    phrases = [p for _, p in ICON_VOCAB]
+    try:
+        with torch.no_grad():
+            if match_model_name == "siglip":
+                tin = tokenizer(phrases, padding="max_length", max_length=64,
+                                truncation=True, return_tensors="pt")
+                tin.pop("attention_mask", None)
+            else:
+                tin = tokenizer(phrases, padding=True, truncation=True, return_tensors="pt")
+            emb = _as_embedding(clip_model.get_text_features(**tin))
+            emb = emb / emb.norm(dim=-1, keepdim=True)
+        icon_vocab_emb = emb
+        print(f"[CAPTION] icon vocabulary embedded ({len(phrases)} concepts).")
+    except Exception as e:
+        print(f"[CAPTION] vocab embed failed: {e}")
+
+
+# Only assign a caption when the top concept beats the runner-up by this margin —
+# an ambiguous crop (no distinct icon) gets no caption rather than a wrong guess.
+CAPTION_MARGIN = 0.03
+
+
+def caption_boxes(img: Image.Image, boxes: list[dict], max_boxes: int = 36) -> None:
+    """Writes a best-guess `caption` on each box via zero-shot vocab matching."""
+    if clip_model is None or icon_vocab_emb is None:
+        return
+    import torch
+    scored = sorted(boxes, key=lambda b: b["confidence"], reverse=True)[:max_boxes]
+    if not scored:
+        return
+    crops = _crop_boxes(img, scored)
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
+    with torch.no_grad():
+        img_in = image_processor(images=crops, return_tensors="pt")
+        img_emb = _as_embedding(clip_model.get_image_features(pixel_values=img_in["pixel_values"]))
+        img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
+        sims = img_emb @ icon_vocab_emb.T            # [N, V] cosine
+        top2 = torch.topk(sims, k=2, dim=1)
+    for b, vals, idxs in zip(scored, top2.values.tolist(), top2.indices.tolist()):
+        if vals[0] - vals[1] > CAPTION_MARGIN:       # distinct match only
+            b["caption"] = ICON_VOCAB[idxs[0]][0]
 
 
 # ── Main detection endpoint ────────────────────────────────
@@ -333,6 +443,16 @@ async def detect(req: DetectRequest):
             import traceback
             print(f"[CLIP] match failed ({type(e).__name__}: {e}) — returning unscored boxes")
             traceback.print_exc()
+    elif clip_model is not None and not label:
+        # No specific target → the Set-of-Mark path wants ALL boxes captioned
+        # so textless icons arrive as words ("search", "attach").
+        try:
+            loop3 = asyncio.get_running_loop()
+            await loop3.run_in_executor(executor, caption_boxes, img, merged)
+            captioned = sum(1 for b in merged if b.get("caption"))
+            print(f"[CAPTION] labelled {captioned}/{len(merged)} boxes")
+        except Exception as e:
+            print(f"[CAPTION] failed ({type(e).__name__}: {e}) — boxes uncaptioned")
 
     elements = [DetectedElement(**b) for b in merged]
     return DetectResponse(
