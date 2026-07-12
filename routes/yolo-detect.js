@@ -11,6 +11,22 @@ const PYTHON_SERVICE_URL = process.env.YOLO_SERVICE_URL;
 // legitimately needs more than the old 5s. Configurable via YOLO_TIMEOUT_MS.
 const YOLO_TIMEOUT_MS = parseInt(process.env.YOLO_TIMEOUT_MS || '12000', 10);
 
+// Learn a new icon concept (user-verified detections teach the captioner).
+router.post('/vocab/add', async (req, res) => {
+  if (!PYTHON_SERVICE_URL) return res.status(503).json({ error: 'YOLO service not configured' });
+  try {
+    const r = await fetch(`${PYTHON_SERVICE_URL}/vocab`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: req.body?.name, phrase: req.body?.phrase }),
+    });
+    return res.status(r.status).json(await r.json());
+  } catch (err) {
+    console.error('[YOLO] vocab/add failed:', err.message);
+    return res.status(502).json({ error: 'vocab add failed' });
+  }
+});
+
 router.post('/detect-elements', async (req, res) => {
   const { screenshot_b64, target_label, step_instruction, screen_region } = req.body || {};
 

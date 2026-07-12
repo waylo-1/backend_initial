@@ -29,6 +29,7 @@ const yoloDetectRoute = require('./routes/yolo-detect');
 const resolveRouter = require('./routes/resolve');
 const actRouter = require('./routes/act');
 const actVisionRouter = require('./routes/act-vision');
+const actComputerRouter = require('./routes/act-computer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -377,6 +378,7 @@ app.use('/failure', failureRouter);
 app.use('/resolve', resolveRouter);
 app.use('/act', actRouter);
 app.use('/act-vision', actVisionRouter);
+app.use('/act-computer', actComputerRouter);
 
 /**
  * POST /plan/learn

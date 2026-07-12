@@ -5,7 +5,9 @@ torch.serialization.add_safe_globals([DetectionModel])
 import asyncio
 import base64
 import io
+import json
 import os
+import re
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
@@ -96,6 +98,7 @@ def load_models():
                 traceback.print_exc()
                 clip_model = None
                 clip_processor = None
+    load_custom_vocab()
     build_icon_vocab()
     print("[YOLO] Service ready.")
 
@@ -339,16 +342,38 @@ ICON_VOCAB = [
     ("show", "an eye show/hide icon"),
 ]
 icon_vocab_emb = None  # torch tensor [V, D], L2-normalized
+# Learned concepts (idea 5): user-verified icon names harvested from real use,
+# appended to the built-in vocabulary and persisted across restarts. The
+# vocabulary GROWS with the product instead of staying a static English list.
+CUSTOM_VOCAB_PATH = "weights/custom_vocab.json"
+custom_vocab: list = []  # [(name, phrase)]
+
+
+def load_custom_vocab():
+    global custom_vocab
+    try:
+        if os.path.exists(CUSTOM_VOCAB_PATH):
+            with open(CUSTOM_VOCAB_PATH) as f:
+                custom_vocab = [tuple(x) for x in json.load(f)]
+            print(f"[CAPTION] loaded {len(custom_vocab)} learned concepts.")
+    except Exception as e:
+        print(f"[CAPTION] custom vocab load failed: {e}")
+        custom_vocab = []
+
+
+def full_vocab():
+    return ICON_VOCAB + custom_vocab
 
 
 def build_icon_vocab():
-    """Embed the icon vocabulary once at startup (reuses the match model)."""
+    """Embed the icon vocabulary (built-in + learned). Called at startup and
+    again whenever a new concept is learned."""
     global icon_vocab_emb
     if clip_model is None:
         return
     import torch
     tokenizer = getattr(clip_processor, "tokenizer", clip_processor)
-    phrases = [p for _, p in ICON_VOCAB]
+    phrases = [p for _, p in full_vocab()]
     try:
         with torch.no_grad():
             if match_model_name == "siglip":
@@ -360,7 +385,7 @@ def build_icon_vocab():
             emb = _as_embedding(clip_model.get_text_features(**tin))
             emb = emb / emb.norm(dim=-1, keepdim=True)
         icon_vocab_emb = emb
-        print(f"[CAPTION] icon vocabulary embedded ({len(phrases)} concepts).")
+        print(f"[CAPTION] icon vocabulary embedded ({len(phrases)} concepts, {len(custom_vocab)} learned).")
     except Exception as e:
         print(f"[CAPTION] vocab embed failed: {e}")
 
@@ -386,9 +411,10 @@ def caption_boxes(img: Image.Image, boxes: list[dict], max_boxes: int = 36) -> N
         img_emb = img_emb / img_emb.norm(dim=-1, keepdim=True)
         sims = img_emb @ icon_vocab_emb.T            # [N, V] cosine
         top2 = torch.topk(sims, k=2, dim=1)
+    vocab = full_vocab()
     for b, vals, idxs in zip(scored, top2.values.tolist(), top2.indices.tolist()):
         if vals[0] - vals[1] > CAPTION_MARGIN:       # distinct match only
-            b["caption"] = ICON_VOCAB[idxs[0]][0]
+            b["caption"] = vocab[idxs[0]][0]
 
 
 # ── Main detection endpoint ────────────────────────────────
@@ -462,6 +488,37 @@ async def detect(req: DetectRequest):
         merged_count=len(merged),
         match_applied=match_applied,
     )
+
+
+class VocabRequest(BaseModel):
+    name: str                      # short concept ("shuffle")
+    phrase: Optional[str] = None   # optional full phrase for the embedder
+
+
+@app.post("/vocab")
+async def add_vocab(req: VocabRequest):
+    """Learn a new icon concept (idea 5): called when a USER-VERIFIED detection
+    carries a concept the vocabulary doesn't know. Appends, re-embeds, persists —
+    the captioner recognises it from then on."""
+    name = re.sub(r"[^a-z0-9 ]", "", req.name.strip().lower())[:40].strip()
+    if not name or len(name) < 3:
+        raise HTTPException(status_code=400, detail="name too short")
+    existing = {n for n, _ in full_vocab()}
+    if name in existing:
+        return {"added": False, "reason": "known", "total": len(full_vocab())}
+    phrase = (req.phrase or f"a {name} icon in a user interface").strip()[:120]
+    custom_vocab.append((name, phrase))
+    try:
+        os.makedirs(os.path.dirname(CUSTOM_VOCAB_PATH), exist_ok=True)
+        with open(CUSTOM_VOCAB_PATH, "w") as f:
+            json.dump([list(x) for x in custom_vocab], f)
+    except Exception as e:
+        print(f"[CAPTION] persist failed: {e}")
+    # Re-embed in the worker pool (CPU-bound, ~100ms).
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(executor, build_icon_vocab)
+    print(f"[CAPTION] learned concept '{name}'")
+    return {"added": True, "total": len(full_vocab())}
 
 
 @app.get("/health")
