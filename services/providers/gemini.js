@@ -22,6 +22,15 @@ if (!API_KEY) {
   throw new Error('AI_PROVIDER=gemini requires GEMINI_API_KEY in the environment');
 }
 
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Google returns 503 UNAVAILABLE ("high demand") and 429 RESOURCE_EXHAUSTED on
+// transient capacity spikes — common on popular GA models. These are NOT the
+// caller's fault and clear in seconds, so we retry with backoff+jitter instead
+// of surfacing a failure. Genuine errors (400/404/permission) are not retried.
+const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
+const MAX_ATTEMPTS = 4;
+
 async function generateContent({ model, system, parts, maxTokens = 1500, temperature = 0.3 }) {
   const body = {
     contents: [{ role: 'user', parts }],
@@ -31,15 +40,22 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
     body.systemInstruction = { parts: [{ text: system }] };
   }
 
-  const res = await fetch(`${BASE_URL}/${model}:generateContent?key=${API_KEY}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${errText.substring(0, 300)}`);
+  let res, errText;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    res = await fetch(`${BASE_URL}/${model}:generateContent?key=${API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) break;
+    errText = await res.text();
+    if (attempt < MAX_ATTEMPTS && RETRY_STATUSES.has(res.status)) {
+      const wait = Math.round(400 * 2 ** (attempt - 1) + Math.random() * 300); // 0.4s,0.8s,1.6s +jitter
+      console.warn(`[gemini] ${model} ${res.status} — retry ${attempt}/${MAX_ATTEMPTS - 1} in ${wait}ms`);
+      await sleep(wait);
+      continue;
+    }
+    throw new Error(`Gemini API error ${res.status}: ${(errText || '').substring(0, 300)}`);
   }
 
   const data = await res.json();
