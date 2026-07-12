@@ -85,10 +85,10 @@ async function converse({ modelId, system, content, maxTokens = 1500, temperatur
   return text;
 }
 
-/** Text-only call (no image). Uses Nova Micro. */
-async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3 }) {
+/** Text-only call (no image). Uses Nova Micro unless modelId overrides. */
+async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId }) {
   return converse({
-    modelId: TEXT_MODEL_ID,
+    modelId: modelId || TEXT_MODEL_ID,
     system,
     content: [{ text: prompt }],
     maxTokens,

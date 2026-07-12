@@ -53,6 +53,7 @@ Rules:
 2. Prefer, in order: a keyboard shortcut you are certain of (e.g. cmd+s to save) > a menu path > pressing a listed element. Menus and shortcuts are the most reliable channels on macOS.
 3. NEVER repeat an action that is already in the history, whatever its result. Pressing the same menu or button again does not make it work — if your action didn't achieve what you expected, the next attempt MUST use a different channel or ask_user/point. This is the most important rule.
 4. AXPress reports success even when it achieves nothing (disabled menus, sheets already open). Trust the ELEMENT LIST, not the action result: after opening a dialog, the list will contain its Save/Cancel buttons — act on those.
+4b. Elements marked ** IN OPEN DIALOG ** mean a modal dialog/sheet is open. You MUST act on the dialog's elements (fill its fields, press its buttons). Menus and everything behind it are FROZEN and will silently do nothing until the dialog is completed or cancelled.
 5. Actions that start a timed process (camera countdown, capture, export, loading) show no immediate change — use wait (3-5s) after them instead of re-triggering. Example: after pressing a camera/record/take-photo button, the countdown is invisible to the element list; the ONLY correct next action is {"act":"wait","seconds":4}. Pressing it again cancels or retakes.
 6. Add "confirm":true to any action that sends, deletes, empties, pays, posts, shares, or otherwise acts irreversibly or outward. The app will ask the user before executing.
 7. Personal choices are the user's: which chat, which photo, which contact, which file. When the choices (or their area) appear in the element list, use point with one of their ids — the outline shows the user where to look; otherwise ask_user. Never guess for them.
@@ -69,6 +70,7 @@ function fmtElements(elements) {
     if (e.desc && e.desc !== e.title) bits.push(`(${String(e.desc).slice(0, 60)})`);
     if (e.value) bits.push(`value="${String(e.value).slice(0, 40)}"`);
     if (e.pos) bits.push(`@${e.pos}`);
+    if (e.dialog) bits.push('** IN OPEN DIALOG **');
     return bits.join(' ');
   }).join('\n');
 }
@@ -94,7 +96,15 @@ ${hist}
 
 Reply with the single JSON action for the next step.`;
 
-    const rawText = await askText({ system: SYSTEM, prompt, maxTokens: 300, temperature: 0.1 });
+    // The decider is the brain of agent mode — it must NOT run on the cheap
+    // plan-generation model (askText's default is Nova MICRO, which repeats
+    // actions despite explicit rules; that caused the Export×9 loop).
+    // Preference: AGENT_MODEL_ID (e.g. a Claude model) > BEDROCK_MODEL_ID
+    // (the main model) > provider default.
+    const rawText = await askText({
+      system: SYSTEM, prompt, maxTokens: 300, temperature: 0.1,
+      modelId: process.env.AGENT_MODEL_ID || process.env.BEDROCK_MODEL_ID || undefined,
+    });
     let action;
     try {
       action = JSON.parse(stripFences(rawText));
