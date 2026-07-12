@@ -11,8 +11,11 @@
  */
 
 const API_KEY = process.env.GEMINI_API_KEY;
-const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.0-flash';
-const VISION_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-2.0-flash';
+// Defaults track the current stable line (gemini-2.x is retired). Override per
+// deploy with GEMINI_TEXT_MODEL / GEMINI_VISION_MODEL. Verify what your key can
+// see with:  curl "https://generativelanguage.googleapis.com/v1beta/models?key=$GEMINI_API_KEY"
+const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-3.5-flash';
+const VISION_MODEL = process.env.GEMINI_VISION_MODEL || 'gemini-3.1-pro';
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 if (!API_KEY) {
