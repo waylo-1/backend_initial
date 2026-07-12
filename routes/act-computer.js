@@ -119,15 +119,15 @@ router.post('/', async (req, res) => {
       : '';
     const prompt = `${GUIDANCE}\n\nTASK: ${task}\nFRONTMOST APP: ${appName || '(unknown)'}${hist}\n\nHere is the current screen. Decide the single next action.`;
 
+    // NOTE: this Interactions API variant is STEPS-based — `input` is a flat
+    // list of step items, NOT [{role, content}] turns (that shape 400s with
+    // "use step_list input format instead of turn_list").
     const body = {
       model: MODEL,
-      input: [{
-        role: 'user',
-        content: [
-          { type: 'text', text: prompt },
-          { type: 'image', data: imageBase64, mime_type: 'image/jpeg' },
-        ],
-      }],
+      input: [
+        { type: 'text', text: prompt },
+        { type: 'image', data: imageBase64, mime_type: 'image/jpeg' },
+      ],
       tools: [{ type: 'computer_use', environment: 'desktop' }],
     };
 
