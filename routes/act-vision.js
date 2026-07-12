@@ -80,7 +80,7 @@ Look at the screenshot, then reply with the single JSON action for the next step
     // AGENT_VISION_MODEL_ID (provider-appropriate) overrides; else the
     // provider's default vision model (set GEMINI_VISION_MODEL on Gemini).
     const rawText = await askVision({
-      system: SYSTEM, prompt, imageBase64, maxTokens: 300, temperature: 0.1,
+      system: SYSTEM, prompt, imageBase64, maxTokens: 900, temperature: 0.1, json: true,
       modelId: process.env.AGENT_VISION_MODEL_ID || undefined,
     });
 

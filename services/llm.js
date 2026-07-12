@@ -122,8 +122,12 @@ Ground the plan in this snapshot:
   const text = await raw.askText({
     system: specs.getDesktopSystemPrompt(),
     prompt,
-    maxTokens: 1500,
+    // Roomy budget: Gemini 3.x spends output tokens on hidden "thinking", so a
+    // tight cap truncated the JSON plan mid-array. json:true forces a clean
+    // JSON object (no prose preamble / markdown fences).
+    maxTokens: 3500,
     temperature: 0.3,
+    json: true,
   });
 
   return specs.parseDesktopPlan(text);
@@ -136,8 +140,9 @@ async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, 
     system: specs.getRecoverySystemPrompt(),
     prompt: specs.getRecoveryUserText({ task, stepIndex, totalSteps, instruction, targetLabel, userMessage }),
     imageBase64: screenshot,
-    maxTokens: 1200,
+    maxTokens: 1800,
     temperature: 0.2,
+    json: true,
   });
 
   return specs.parseRecoveryResponse(text);
@@ -151,8 +156,9 @@ async function detectObject({ screenshot, targetLabel, stepInstruction, ocrConte
   const text = await raw.askObjectDetection({
     prompt,
     imageBase64: screenshot,
-    maxTokens: 400,
+    maxTokens: 1200,
     temperature: 0.0,
+    json: true,
   });
 
   if (process.env.NOVA_DEBUG) console.log('[detectObject] RAW:', text);

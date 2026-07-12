@@ -104,7 +104,7 @@ Reply with the single JSON action for the next step.`;
     // model — fine on Gemini (set GEMINI_TEXT_MODEL to a capable model), but on
     // Bedrock that default is Nova Micro, so set AGENT_MODEL_ID there.
     const rawText = await askText({
-      system: SYSTEM, prompt, maxTokens: 300, temperature: 0.1,
+      system: SYSTEM, prompt, maxTokens: 900, temperature: 0.1, json: true,
       modelId: process.env.AGENT_MODEL_ID || undefined,
     });
     let action;

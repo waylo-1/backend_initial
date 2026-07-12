@@ -31,11 +31,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const RETRY_STATUSES = new Set([429, 500, 502, 503, 504]);
 const MAX_ATTEMPTS = 4;
 
-async function generateContent({ model, system, parts, maxTokens = 1500, temperature = 0.3 }) {
+async function generateContent({ model, system, parts, maxTokens = 1500, temperature = 0.3, json = false }) {
   const body = {
     contents: [{ role: 'user', parts }],
     generationConfig: { temperature, maxOutputTokens: maxTokens },
   };
+  // Force valid JSON out (no prose preamble, no ```json fences) for callers that
+  // parse it — Gemini otherwise adds "Sure, here's…" and breaks JSON.parse.
+  if (json) {
+    body.generationConfig.responseMimeType = 'application/json';
+  }
   if (system) {
     body.systemInstruction = { parts: [{ text: system }] };
   }
@@ -70,19 +75,20 @@ async function generateContent({ model, system, parts, maxTokens = 1500, tempera
   return text;
 }
 
-/** Text-only call (no image). `modelId` overrides the default text model. */
-async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId }) {
+/** Text-only call (no image). `modelId` overrides the model; `json` forces JSON. */
+async function askText({ system, prompt, maxTokens = 1500, temperature = 0.3, modelId, json = false }) {
   return generateContent({
     model: modelId || TEXT_MODEL,
     system,
     parts: [{ text: prompt }],
     maxTokens,
     temperature,
+    json,
   });
 }
 
-/** Single-image call. `modelId` overrides the default vision model. */
-async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId }) {
+/** Single-image call. `modelId` overrides the model; `json` forces JSON. */
+async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temperature = 0.3, modelId, json = false }) {
   return generateContent({
     model: modelId || VISION_MODEL,
     system,
@@ -92,11 +98,12 @@ async function askVision({ system, prompt, imageBase64, maxTokens = 1500, temper
     ],
     maxTokens,
     temperature,
+    json,
   });
 }
 
 /** Object-detection call (bbox grounding). */
-async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0, modelId }) {
+async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temperature = 0.0, modelId, json = false }) {
   return generateContent({
     model: modelId || VISION_MODEL,
     parts: [
@@ -105,6 +112,7 @@ async function askObjectDetection({ prompt, imageBase64, maxTokens = 400, temper
     ],
     maxTokens,
     temperature,
+    json,
   });
 }
 
