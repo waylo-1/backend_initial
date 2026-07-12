@@ -69,6 +69,7 @@ function fmtElements(elements) {
     const bits = [`[${e.id}] ${e.role || '?'}`];
     if (e.title) bits.push(`"${String(e.title).slice(0, 60)}"`);
     if (e.desc && e.desc !== e.title) bits.push(`(${String(e.desc).slice(0, 60)})`);
+    if (e.tooltip) bits.push(`tooltip="${String(e.tooltip).slice(0, 50)}"`);
     if (e.value) bits.push(`value="${String(e.value).slice(0, 40)}"`);
     if (e.pos) bits.push(`@${e.pos}`);
     if (e.dialog) bits.push('** IN OPEN DIALOG **');
