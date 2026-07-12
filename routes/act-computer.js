@@ -31,7 +31,12 @@ const INTERACTIONS_URL = 'https://generativelanguage.googleapis.com/v1beta/inter
 const GUIDANCE = `You are Waylo, operating a macOS desktop for a non-technical user.
 Work strictly toward the TASK. One action at a time. Personal choices (which chat,
 which photo, which file) belong to the USER — do not guess; explain what they should
-click instead of clicking it yourself. Never repeat an action listed in the history.`;
+click instead of clicking it yourself. Never repeat an action listed in the history.
+
+STOPPING RULE (most important): the moment the screen shows the TASK is achieved,
+STOP ACTING — reply in plain text starting with "DONE:" and one sentence of what was
+accomplished. Do NOT perform extra actions beyond the literal task: no renaming,
+no verifying, no tidying, no exploring. Fewer actions is better.`;
 
 /** "Control+Shift+A" / "ctrl-a" → our combo syntax "ctrl+shift+a". */
 function normalizeCombo(keys) {
@@ -153,8 +158,8 @@ router.post('/', async (req, res) => {
     const texts = [];
     findTexts(json, texts);
     const text = texts.join(' ').slice(0, 300);
-    if (/\b(done|complete|finished|successfully)\b/i.test(text)) {
-      return res.json({ act: 'done', summary: text || 'Done.' });
+    if (/^\s*DONE:/i.test(text) || /\b(done|complete|finished|successfully)\b/i.test(text)) {
+      return res.json({ act: 'done', summary: text.replace(/^\s*DONE:\s*/i, '') || 'Done.' });
     }
     return res.json({ act: 'ask_user', question: text || 'I need your help with this step.' });
   } catch (err) {
