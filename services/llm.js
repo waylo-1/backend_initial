@@ -99,8 +99,25 @@ async function generateEnrichedSteps(task) {
  * what is actually on screen means: no "open the app" step when it's already
  * frontmost, and targetLabels copied from REAL visible labels instead of
  * guessed ones (the #1 cause of detection misses). */
-async function generateDesktopSteps(task, screenContext) {
+async function generateDesktopSteps(task, screenContext, sessionContext) {
   let prompt = `Task: ${task}`;
+
+  // Learning-session continuity: a compact summary of what the user has just
+  // done in this skill session, so follow-ups make sense ("now make it bold"
+  // = the chart title created two tasks ago, in the app that's already open).
+  if (sessionContext && typeof sessionContext === 'string' && sessionContext.trim()) {
+    prompt += `
+
+LEARNING SESSION (the user is mid-lesson — this task is a FOLLOW-UP):
+${sessionContext.trim().slice(0, 1200)}
+
+Follow-up rules:
+- Resolve pronouns/references ("it", "the chart", "that file") against what the
+  session says was just done.
+- The app is already open and in the state the session describes — do NOT plan
+  opening it or re-doing completed work; plan ONLY the new part.
+- Keep the same document/window they were working in.`;
+  }
   if (screenContext && typeof screenContext === 'string' && screenContext.trim()) {
     // Cap so a huge tree can't blow the token budget.
     const ctx = screenContext.trim().slice(0, 2400);

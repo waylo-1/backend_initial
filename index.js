@@ -31,6 +31,7 @@ const actRouter = require('./routes/act');
 const actVisionRouter = require('./routes/act-vision');
 const actComputerRouter = require('./routes/act-computer');
 const iconMemoryRouter = require('./routes/icon-memory');
+const { CURRICULA, findCurriculum } = require('./curricula');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -109,11 +110,20 @@ app.post('/plan', planLimiter, async (req, res) => {
     if (platform === 'macos') {
       console.log(`Plan requested (macOS): ${task}`);
 
+      // Learning-session context (a compact summary of what the user just did
+      // in this skill session). A follow-up like "now make it bold" is only
+      // meaningful WITH this context, so session plans skip the semantic cache
+      // in both directions.
+      const sessionContext = typeof req.body.sessionContext === 'string'
+        ? req.body.sessionContext.slice(0, 1200) : '';
+
       // Semantic cache: a paraphrase of a prior task returns instantly, no Nova call.
-      const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
-      if (cachedPlan) {
-        console.log(`Plan semantic-cache HIT (macOS) for: ${task}`);
-        return res.json({ ...cachedPlan, cached: true });
+      if (!sessionContext) {
+        const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
+        if (cachedPlan) {
+          console.log(`Plan semantic-cache HIT (macOS) for: ${task}`);
+          return res.json({ ...cachedPlan, cached: true });
+        }
       }
 
       // Optional live-screen grounding from the macOS client (AX-tree snapshot).
@@ -125,7 +135,7 @@ app.post('/plan', planLimiter, async (req, res) => {
 
       let plan;
       try {
-        plan = await generateDesktopSteps(task, screenContext);
+        plan = await generateDesktopSteps(task, screenContext, sessionContext);
       } catch (genError) {
         if (!isQuotaOrThrottleError(genError)) throw genError;
 
@@ -151,7 +161,7 @@ app.post('/plan', planLimiter, async (req, res) => {
       // fail honestly (never serve or cache an empty plan).
       if (!plan.steps || plan.steps.length === 0) {
         console.warn(`Empty plan for "${task}" — regenerating once`);
-        try { plan = await generateDesktopSteps(task, screenContext); } catch { /* fall through */ }
+        try { plan = await generateDesktopSteps(task, screenContext, sessionContext); } catch { /* fall through */ }
         if (!plan?.steps || plan.steps.length === 0) {
           return res.status(502).json({
             success: false,
@@ -166,7 +176,7 @@ app.post('/plan', planLimiter, async (req, res) => {
       // Grounded plans are NOT cached: a plan that (correctly) skips opening
       // the app because it was already frontmost would be wrong as the
       // general cached answer for this task from a cold start.
-      if (plan.steps && plan.steps.length > 0 && !screenContext) {
+      if (plan.steps && plan.steps.length > 0 && !screenContext && !sessionContext) {
         semanticPlanCache.storePlanInCache('macos', task, plan).then(() => {}, () => {});
       }
       return res.json(plan);
@@ -395,6 +405,18 @@ app.use('/act', actRouter);
 app.use('/act-vision', actVisionRouter);
 app.use('/act-computer', actComputerRouter);
 app.use('/icon', iconMemoryRouter);
+
+// Hand-authored learning curricula (lesson lists; each lesson plans via /plan).
+app.get('/curriculum', (_req, res) => {
+  res.json({ curricula: CURRICULA.map(({ id, displayName, description, lessons }) =>
+    ({ id, displayName, description, lessonCount: lessons.length })) });
+});
+app.get('/curriculum/:query', (req, res) => {
+  const c = findCurriculum(req.params.query);
+  if (!c) return res.status(404).json({ error: 'no curriculum for that app yet' });
+  const { id, displayName, description, lessons } = c;
+  res.json({ id, displayName, description, lessons });
+});
 
 /**
  * POST /plan/learn
