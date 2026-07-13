@@ -146,6 +146,20 @@ app.post('/plan', planLimiter, async (req, res) => {
         });
       }
 
+      // A syntactically-valid but EMPTY plan is a transient model hiccup, not
+      // an answer — a client can't guide with 0 steps. Regenerate once, then
+      // fail honestly (never serve or cache an empty plan).
+      if (!plan.steps || plan.steps.length === 0) {
+        console.warn(`Empty plan for "${task}" — regenerating once`);
+        try { plan = await generateDesktopSteps(task, screenContext); } catch { /* fall through */ }
+        if (!plan?.steps || plan.steps.length === 0) {
+          return res.status(502).json({
+            success: false,
+            error: "I couldn't work out the steps for that — please try rephrasing the task.",
+          });
+        }
+      }
+
       console.log(`Bedrock desktop response received, ${plan.steps?.length || 0} steps parsed`);
 
       // Store for next time (fire-and-forget; only cache non-empty plans).
