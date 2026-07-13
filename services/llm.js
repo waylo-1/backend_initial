@@ -124,10 +124,14 @@ Ground the plan in this snapshot:
     prompt,
     // Roomy budget: Gemini 3.x spends output tokens on hidden "thinking", so a
     // tight cap truncated the JSON plan mid-array. json:true forces a clean
-    // JSON object (no prose preamble / markdown fences).
-    maxTokens: 3500,
+    // JSON object (no prose preamble / markdown fences). thinkingBudget BOUNDS
+    // the hidden reasoning — unbounded thinking twice ate the whole budget and
+    // truncated the plan ("Unexpected end of JSON input"); 2048 is plenty for
+    // planning and guarantees room for the JSON itself.
+    maxTokens: 5000,
     temperature: 0.3,
     json: true,
+    thinkingBudget: 2048,
   });
 
   return specs.parseDesktopPlan(text);
