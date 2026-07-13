@@ -451,6 +451,10 @@ before the task is truly done.
       the colour swatch (it opens the full colour picker; the swatch itself only
       shows the current colour) → pick a colour. Mark the colour-wheel step
       targetType "icon" with anchorText "Text Colour" and anchorPosition "right".
+      NEVER route text formatting through the menu bar (Format > Font > Show
+      Colors) in these apps — the floating Colors window it opens is confusing
+      and its swatches are unlabeled. The toolbar Format panel is the ONLY
+      correct route for colour/font changes in Pages, Numbers and Keynote.
     * Spotify — to make a playlist: click the "+" (Create) button in the LEFT
       sidebar, then choose "Playlist" from the small menu that appears, then type
       the name. There is no "Create Playlist" button.

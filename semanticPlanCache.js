@@ -54,7 +54,10 @@ const PLAN_PROMPT_VERSIONS = {
   // pointed at the wrong button; colour-described icons ("red camera button").
   // v16 (2026-07-11): colour-first descriptions for distinctive controls +
   // dark/light-aware shades; Photo Booth thumbnail is a user-choice step.
-  macos: 'v16',
+  // v17 (2026-07-13): hard NEVER-menu-bar rule for Pages/Numbers/Keynote text
+  // formatting (a learned v16 plan routed Format>Font>Show Colors into the
+  // unlabeled Colors window); invalidates that learned plan.
+  macos: 'v17',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
