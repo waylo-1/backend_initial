@@ -15,7 +15,13 @@
 const db = require('./db');
 const { embedText } = require('./embeddings');
 
-const LABEL_SIMILARITY_THRESHOLD = 0.93;
+// 0.93 proved too tight in live testing: "Search field at the top of the left
+// sidebar" vs "Search or start new chat text field at the top of the sidebar"
+// (the SAME WhatsApp field, two plans one minute apart) missed at 0.93 and
+// paid for vision twice. 0.90 is safe BY CONSTRUCTION: a hit only returns a
+// LABEL, which must still resolve in the live AX tree — a wrong label simply
+// misses and falls through to the next layer; it can never place a wrong dot.
+const LABEL_SIMILARITY_THRESHOLD = 0.90;
 
 function toVector(arr) {
   return `[${arr.join(',')}]`;
