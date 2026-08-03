@@ -46,6 +46,57 @@ slice of MacPaw's public training data (`Screen2AX-Element` on Hugging Face,
 under `macpaw-research`) by converting it into the same dataset folder before
 training — optional, but recommended once your harvest is large.
 
+### 2b. Mixing in external datasets — `convert_external.py`
+
+`prepare_dataset.py` only reads YOUR harvested JSONL. To fold in a public
+labelled-picture dataset (images + boxes) — the thing you actually train YOLO
+on — use `convert_external.py`. It emits the **same** `images/ labels/
+data.yaml` layout, so point `--out` at a dataset you already built to MERGE, or
+at a new folder. **It prints the schema it detects (features, class names, a
+sample box) — read that first**, then set `--bbox-format` / `--class-map` if the
+sample box or labels look wrong. Names ≠ pictures: this trains *detection*
+(where the boxes are); *which icon* still comes from SigLIP + the vocab.
+
+Install extras: `pip install datasets pillow`.
+
+**MacPaw `Screen2AX-Element`** (HF; labels are already AX-style element
+classes → best fit for the Screen2AX head, closest to macOS):
+
+```bash
+# build your harvest set first (so classes are numbered by the checkpoint)…
+python3 prepare_dataset.py --mode screen2ax --out dataset_ax
+# …then merge MacPaw in on top:
+python3 convert_external.py --source hf:macpaw-research/Screen2AX-Element \
+    --mode screen2ax --out dataset_ax --split train --prefix macpaw
+# HF detection boxes are COCO xywh-abs by default; if the printed sample box
+# looks like corners not width/height, add: --bbox-format xyxy_abs
+```
+
+**WebUI** (best public set for your web-app weak spot — Gmail/Docs are web
+UIs). Download a WebUI split locally (each page = a screenshot + a JSON of
+element boxes/roles), then adapt the keys to that dump's schema:
+
+```bash
+# class-agnostic boxes for the OmniParser head (simplest, uses everything):
+python3 convert_external.py --source dir:/data/webui \
+    --mode omni --out dataset_omni --prefix webui \
+    --image-glob '**/*.png' \
+    --box-key elements --bbox-key box --label-key tag --bbox-format xyxy_abs
+
+# or map HTML roles → AX classes for the Screen2AX head:
+python3 convert_external.py --source dir:/data/webui \
+    --mode screen2ax --out dataset_ax --prefix webui \
+    --image-glob '**/*.png' --box-key elements --bbox-key box \
+    --label-key role --bbox-format xyxy_abs --class-map webui_roles.json
+```
+
+`--box-key` is the dotted path to the box LIST inside each page JSON,
+`--bbox-key` the path to a single box's 4 numbers, `--label-key` the element's
+role/tag. `--class-map` is `{ "button": "AXButton", "a": "AXLink", … }`
+(built-in defaults already cover the common web roles; AX-prefixed labels pass
+through). Use `--limit 200` for a quick dry run to confirm the mapping before
+converting the whole set.
+
 ## 4. Evaluate, then deploy
 
 ```bash
