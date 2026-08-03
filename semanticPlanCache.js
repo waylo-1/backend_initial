@@ -57,7 +57,12 @@ const PLAN_PROMPT_VERSIONS = {
   // v17 (2026-07-13): hard NEVER-menu-bar rule for Pages/Numbers/Keynote text
   // formatting (a learned v16 plan routed Format>Font>Show Colors into the
   // unlabeled Colors window); invalidates that learned plan.
-  macos: 'v17',
+  // v18 (2026-08-03): web-app icon guidance — formatting/action buttons on a
+  // web TOOLBAR (Gmail paperclip/star, Docs Bold B / image / link, Sheets chart)
+  // are icon-only glyphs → mark targetType "icon" + anchorText to a nearby
+  // label; menus stay "text"; prefer a text menu path over a toolbar icon. Old
+  // cached web plans mislabel these as text and mis-ground on the page.
+  macos: 'v18',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

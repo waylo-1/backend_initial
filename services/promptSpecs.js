@@ -586,6 +586,15 @@ Rules:
              (e.g. a Dock icon's app name "System Settings", or its tooltip), and
              ALWAYS describe the icon's shape/color/symbol/location in
              "elementDescription".
+    WEB APPS (Gmail, Google Docs / Sheets / Slides, any site in Chrome): a menu
+    or menu item IS text — use "text" (the "Insert" menu, a "Freeze" item, the
+    "Compose" button). But a formatting / action button on a web TOOLBAR is
+    usually an icon-only glyph with NO text — Gmail's paperclip ("attach") and
+    star, Docs' Bold "B", link, and image buttons, a Sheets chart button. Mark
+    THOSE "icon", give a concise "elementDescription" of the glyph (e.g.
+    "paperclip attach icon", "bold B button"), and set "anchorText" to the
+    nearest visible text label so the app can find it on the page. Prefer a menu
+    path (all text) over a toolbar icon whenever the app offers one.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
