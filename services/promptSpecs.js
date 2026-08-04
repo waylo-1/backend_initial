@@ -756,7 +756,7 @@ function parseRecoveryResponse(rawText) {
 // ── Object detection (POST /nova-vision) ────────────────────────────────────
 
 function getDetectionPrompt(targetLabel, stepInstruction, ocrContext) {
-  const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max], "confidence": 0.0}]}`;
+  const schema = `{"${targetLabel}": [{"bbox": [x_min, y_min, x_max, y_max], "confidence": 0.0}], "container": [x_min, y_min, x_max, y_max], "hint": "short spoken phrase saying where it is"}`;
   // Words the client's local OCR already read for free — anchoring the vision
   // model to real on-screen text narrows its search dramatically on busy screens.
   const ocrSection = ocrContext
@@ -788,8 +788,22 @@ The user is trying to: ${stepInstruction}${ocrSection}
   that the box is the EXACT element described, not just something vaguely
   similar. A tiny unlabelled icon you're guessing at = low (0.2-0.4). A clearly
   visible, unambiguous match = high (0.8-1.0). It is far better to report low
-  confidence (the app will then ask the user for help) than to confidently
-  point at the wrong icon.
+  confidence (the app will then guide the user by describing where it is) than
+  to confidently point at the wrong icon.
+- ALWAYS ALSO return "container" and "hint", even when your confidence in the
+  exact box is low or the list is empty:
+  * "container" = the bounding box (same 0-1000 scale) of the CONTAINING GROUP
+    the target sits in — the toolbar, button row, panel, or menu that holds it.
+    A group is big and unambiguous, so you can be confident about it even when
+    the individual icon is tiny. Example: for a paperclip in Gmail's compose
+    toolbar, "container" is the whole bottom formatting/attachment toolbar.
+  * "hint" = one short spoken sentence a person could follow to find the target
+    WITHIN that group, using nearby visible labels or icons as landmarks —
+    e.g. "the paperclip, to the right of the underlined A, just left of Send".
+    No coordinates, no jargon; it will be read aloud to a non-technical user.
+  When you can't pin the exact icon, a correct container + a clear hint is what
+  lets the app highlight the right area and talk the user onto the target,
+  instead of guessing wrong. Treat them as required output.
 - Coordinates use format [x_min, y_min, x_max, y_max] where:
   * (x_min, y_min) is the top-left corner
   * (x_max, y_max) is the bottom-right corner
@@ -819,9 +833,19 @@ function parseDetectionResponse(rawText, targetLabel) {
     return { found: false };
   }
 
+  // Container box + spoken hint ride ALONGSIDE the detection, and are returned
+  // even when the exact box is missing/low-confidence — they power the app's
+  // "highlight the toolbar and describe where the icon is" fallback.
+  const validBox = (b) =>
+    Array.isArray(b) && b.length === 4 &&
+    b.every((v) => typeof v === 'number' && v >= 0 && v <= 1000) &&
+    b[0] < b[2] && b[1] < b[3];
+  const container = validBox(parsed.container) ? parsed.container : null;
+  const hint = typeof parsed.hint === 'string' ? parsed.hint.trim().slice(0, 200) : '';
+
   const detections = parsed[targetLabel];
   if (!Array.isArray(detections) || detections.length === 0) {
-    return { found: false };
+    return { found: false, container, hint };
   }
 
   const first = detections[0];
@@ -833,17 +857,14 @@ function parseDetectionResponse(rawText, targetLabel) {
     bbox = first.bbox;
     if (typeof first.confidence === 'number') confidence = first.confidence;
   } else {
-    return { found: false };
+    return { found: false, container, hint };
   }
 
-  if (bbox.length !== 4 || bbox.some((v) => typeof v !== 'number' || v < 0 || v > 1000)) {
-    return { found: false };
-  }
-  if (!(bbox[0] < bbox[2] && bbox[1] < bbox[3])) {
-    return { found: false };
+  if (!validBox(bbox)) {
+    return { found: false, container, hint };
   }
 
-  return { found: true, bbox, label: targetLabel, confidence };
+  return { found: true, bbox, label: targetLabel, confidence, container, hint };
 }
 
 // ── Concept Q&A (POST /qa, POST /ask-screen) ────────────────────────────────
