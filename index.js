@@ -22,6 +22,7 @@ const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
 const stepLabelCache = require('./stepLabelCache');
+const pickMemory = require('./pickMemory');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
@@ -301,6 +302,36 @@ app.post('/label/store', (req, res) => {
   const { appName, stepDescription, axLabel } = req.body || {};
   if (appName && stepDescription && axLabel) {
     stepLabelCache.storeLabelInCache(appName, stepDescription, axLabel).then(() => {}, () => {});
+  }
+  return res.status(202).json({ accepted: true });
+});
+
+/**
+ * POST /pick/lookup
+ * Fleet-wide ambiguity pick: the remembered relative position for a step.
+ * Body: { app, stepKey } → { found, relX, relY }
+ */
+app.post('/pick/lookup', async (req, res) => {
+  try {
+    const { app: appName, stepKey } = req.body || {};
+    if (!appName || !stepKey) return res.json({ found: false });
+    const p = await pickMemory.lookupPick(appName, stepKey);
+    return res.json(p ? { found: true, relX: p.relX, relY: p.relY } : { found: false });
+  } catch (e) {
+    console.error('Error in /pick/lookup:', e.message);
+    return res.json({ found: false });
+  }
+});
+
+/**
+ * POST /pick/store
+ * Remember the user's disambiguation choice (fire-and-forget). 202 immediately.
+ * Body: { app, stepKey, relX, relY } (relX/relY are 0–1 fractions of the window)
+ */
+app.post('/pick/store', (req, res) => {
+  const { app: appName, stepKey, relX, relY } = req.body || {};
+  if (appName && stepKey && typeof relX === 'number' && typeof relY === 'number') {
+    pickMemory.storePick(appName, stepKey, relX, relY).then(() => {}, () => {});
   }
   return res.status(202).json({ accepted: true });
 });
