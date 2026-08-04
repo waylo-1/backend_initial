@@ -595,6 +595,14 @@ Rules:
     "paperclip attach icon", "bold B button"), and set "anchorText" to the
     nearest visible text label so the app can find it on the page. Prefer a menu
     path (all text) over a toolbar icon whenever the app offers one.
+    A delete / trash / archive / bin action INSIDE a web app is an ICON on the
+    page's own toolbar — NEVER the Mac's Finder Bin, and never "open the Bin".
+    To DELETE an email in Gmail: (1) a "click" step to SELECT the email the user
+    wants (a user-choice — describe it as "the email you want to delete", do not
+    name a specific subject); (2) a "click" step on the trash/bin ICON in the
+    row of icons at the TOP of the open email or above the list (targetType
+    "icon", elementDescription "trash bin delete icon", anchorText a nearby
+    icon/label like "Archive"). Do not open any folder or the desktop Trash.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
