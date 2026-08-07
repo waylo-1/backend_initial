@@ -100,6 +100,7 @@ def load_models():
                 clip_processor = None
     load_custom_vocab()
     build_icon_vocab()
+    build_icon_reference()   # image-to-image icon namer
     print("[YOLO] Service ready.")
 
 
@@ -134,6 +135,11 @@ class DetectedElement(BaseModel):
     # Tier 2: zero-shot concept label ("search", "attach") for a textless icon,
     # or None when no vocabulary concept matched distinctly.
     caption: Optional[str] = None
+    # Icon NAME from IMAGE-to-image matching against the reference icon library
+    # (the reliable path — SigLIP is good at image similarity, bad at text->icon).
+    # This is how EVERY detected icon box gets labelled.
+    image_caption: Optional[str] = None
+    image_conf: Optional[float] = None
 
 
 class DetectResponse(BaseModel):
@@ -479,6 +485,148 @@ def build_icon_vocab():
 CAPTION_MARGIN = 0.03
 
 
+# ── IMAGE-to-image icon labelling (the reliable icon namer) ────────────────
+# SigLIP fails at TEXT->tiny-icon ("archive" vs a 20px glyph = ~0). But it's good
+# at IMAGE->image similarity. So we embed a library of LABELLED reference icon
+# images once, then label each YOLO box by the reference icon it most resembles.
+# This is what lets us name every icon YOLO detects and pick the one we need.
+icon_ref_emb = None       # torch [R, D] L2-normalized image embeddings
+icon_ref_names: list = [] # [R] names, aligned to icon_ref_emb rows
+
+# Reference sources (checked in order): a folder of labelled PNGs, else glyphs
+# rendered from an icon font (one .ttf + a "name codepoint" list → ~2000 icons).
+ICON_REF_DIR = "reference_icons"
+ICON_FONT_PATH = os.environ.get("ICON_FONT_PATH", "weights/icon_font/MaterialIcons-Regular.ttf")
+ICON_CODEPOINTS_PATH = os.environ.get("ICON_CODEPOINTS_PATH", "weights/icon_font/MaterialIcons-Regular.codepoints")
+# Minimum cosine similarity to accept a reference-icon label for a box.
+IMAGE_CAPTION_MIN_SIM = float(os.environ.get("ICON_MATCH_MIN_SIM", "0.55"))
+
+
+def _load_reference_icon_images():
+    """Returns [(name, PIL.Image)] reference icons — from reference_icons/*.png
+    if present, else rendered from the icon font + codepoints. Empty list means
+    image matching stays disabled (service still works via the old paths)."""
+    icons = []
+    if os.path.isdir(ICON_REF_DIR):
+        for fn in sorted(os.listdir(ICON_REF_DIR)):
+            if fn.lower().endswith((".png", ".jpg", ".jpeg")):
+                name = re.sub(r"[^a-z0-9 ]", " ", os.path.splitext(fn)[0].replace("_", " ").lower()).strip()
+                try:
+                    icons.append((name, Image.open(os.path.join(ICON_REF_DIR, fn)).convert("RGB")))
+                except Exception:
+                    pass
+    if not icons and os.path.exists(ICON_FONT_PATH) and os.path.exists(ICON_CODEPOINTS_PATH):
+        try:
+            from PIL import ImageFont, ImageDraw
+            font = ImageFont.truetype(ICON_FONT_PATH, 44)
+            with open(ICON_CODEPOINTS_PATH) as f:
+                for line in f:
+                    parts = line.split()
+                    if len(parts) != 2:
+                        continue
+                    name = re.sub(r"[^a-z0-9 ]", " ", parts[0].replace("_", " ").lower()).strip()
+                    try:
+                        glyph = chr(int(parts[1], 16))
+                    except ValueError:
+                        continue
+                    im = Image.new("RGB", (64, 64), (255, 255, 255))
+                    d = ImageDraw.Draw(im)
+                    try:
+                        bb = d.textbbox((0, 0), glyph, font=font)
+                        gw, gh = bb[2] - bb[0], bb[3] - bb[1]
+                        d.text(((64 - gw) / 2 - bb[0], (64 - gh) / 2 - bb[1]), glyph, font=font, fill=(30, 30, 30))
+                    except Exception:
+                        d.text((10, 6), glyph, font=font, fill=(30, 30, 30))
+                    icons.append((name, im))
+            print(f"[ICONREF] rendered {len(icons)} icons from the font.")
+        except Exception as e:
+            print(f"[ICONREF] font render failed: {e}")
+    return icons
+
+
+def build_icon_reference():
+    """Embed the reference icon IMAGES once (startup). Populates icon_ref_emb."""
+    global icon_ref_emb, icon_ref_names
+    if clip_model is None:
+        return
+    import torch
+    refs = _load_reference_icon_images()
+    if not refs:
+        print("[ICONREF] no reference icons found — add reference_icons/*.png or run "
+              "download_icon_font.sh. Image icon-matching disabled (other layers still work).")
+        return
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
+    names = [n for n, _ in refs]
+    imgs = [im for _, im in refs]
+    try:
+        embs = []
+        with torch.no_grad():
+            for i in range(0, len(imgs), 128):     # batch to bound memory
+                pin = image_processor(images=imgs[i:i + 128], return_tensors="pt")
+                e = _as_embedding(clip_model.get_image_features(pixel_values=pin["pixel_values"]))
+                e = e / e.norm(dim=-1, keepdim=True)
+                embs.append(e)
+        icon_ref_emb = torch.cat(embs, dim=0)
+        icon_ref_names = names
+        print(f"[ICONREF] embedded {len(names)} reference icons for image-to-image matching.")
+    except Exception as e:
+        import traceback
+        print(f"[ICONREF] embed failed: {e}")
+        traceback.print_exc()
+
+
+def caption_boxes_by_image(img: Image.Image, boxes: list[dict], max_boxes: int = 48) -> None:
+    """Label each box with the reference icon it most RESEMBLES (image->image).
+    Writes `image_caption` + `image_conf`. This is the general icon namer."""
+    if clip_model is None or icon_ref_emb is None:
+        return
+    import torch
+    scored = sorted(boxes, key=lambda b: b["confidence"], reverse=True)[:max_boxes]
+    if not scored:
+        return
+    crops = _crop_boxes(img, scored)
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
+    with torch.no_grad():
+        pin = image_processor(images=crops, return_tensors="pt")
+        e = _as_embedding(clip_model.get_image_features(pixel_values=pin["pixel_values"]))
+        e = e / e.norm(dim=-1, keepdim=True)
+        sims = e @ icon_ref_emb.T                    # [N, R] cosine
+        top = torch.max(sims, dim=1)
+    for b, sim, idx in zip(scored, top.values.tolist(), top.indices.tolist()):
+        if sim >= IMAGE_CAPTION_MIN_SIM:
+            b["image_caption"] = icon_ref_names[idx]
+            b["image_conf"] = round(float(sim), 4)
+
+
+def match_target_by_image_caption(boxes: list[dict], target_label: str) -> bool:
+    """Given every box's image_caption, set match_score/match_conf on the box(es)
+    whose label matches the target, so the client's existing box-picker chooses
+    it. Returns True if a match was set."""
+    lab = re.sub(r"[^a-z0-9 ]", " ", target_label.lower())
+    stop = {"the", "icon", "button", "box", "in", "on", "a", "an", "of", "to", "toolbar"}
+    lab_words = {w for w in lab.split() if len(w) > 2 and w not in stop}
+    if not lab_words:
+        return False
+    best = None
+    for b in boxes:
+        cap = b.get("image_caption")
+        if not cap:
+            continue
+        cap_words = set(cap.split())
+        if lab_words & cap_words:                    # shares a real word
+            conf = b.get("image_conf", 0.0)
+            b["match_conf"] = conf
+            b["match_score"] = conf
+            if best is None or conf > (best.get("image_conf") or 0):
+                best = b
+    if best is not None:
+        best["match_score"] = max(best.get("match_score", 0.0), 0.9)  # decisive winner
+        print(f"[ICONREF] target '{target_label}' matched box captioned "
+              f"'{best.get('image_caption')}' conf {best.get('image_conf'):.3f}")
+        return True
+    return False
+
+
 def caption_boxes(img: Image.Image, boxes: list[dict], max_boxes: int = 36) -> None:
     """Writes a best-guess `caption` on each box via zero-shot vocab matching."""
     if clip_model is None or icon_vocab_emb is None:
@@ -541,14 +689,26 @@ async def detect(req: DetectRequest):
     if clip_model is not None and label:
         try:
             loop2 = asyncio.get_running_loop()
-            await loop2.run_in_executor(
-                executor, clip_match, img, merged, label, (req.step_instruction or "").strip()
-            )
-            match_applied = True
+            # IMAGE-to-image FIRST: label every box by the reference icon it
+            # resembles, then pick the box whose label matches the target. This
+            # is the reliable icon namer (SigLIP image similarity), and it labels
+            # every detected icon as a bonus.
+            if icon_ref_emb is not None:
+                await loop2.run_in_executor(executor, caption_boxes_by_image, img, merged)
+                if match_target_by_image_caption(merged, label):
+                    match_applied = True
+            # TEXT match too — it still helps for text-bearing controls and as a
+            # fallback when no reference icon matched.
+            if not match_applied:
+                await loop2.run_in_executor(
+                    executor, clip_match, img, merged, label, (req.step_instruction or "").strip()
+                )
+                match_applied = True
             if merged:
                 best = max(merged, key=lambda b: b.get("match_score") or 0)
                 print(f"[MATCH] '{label}' — top score {best.get('match_score'):.2f} "
-                      f"conf {best.get('match_conf'):.3f} (conf is the absent-target check)")
+                      f"conf {(best.get('match_conf') or 0):.3f} "
+                      f"img_caption={best.get('image_caption')}")
         except Exception as e:
             import traceback
             print(f"[CLIP] match failed ({type(e).__name__}: {e}) — returning unscored boxes")
@@ -559,7 +719,9 @@ async def detect(req: DetectRequest):
         try:
             loop3 = asyncio.get_running_loop()
             await loop3.run_in_executor(executor, caption_boxes, img, merged)
-            captioned = sum(1 for b in merged if b.get("caption"))
+            if icon_ref_emb is not None:
+                await loop3.run_in_executor(executor, caption_boxes_by_image, img, merged)
+            captioned = sum(1 for b in merged if b.get("caption") or b.get("image_caption"))
             print(f"[CAPTION] labelled {captioned}/{len(merged)} boxes")
         except Exception as e:
             print(f"[CAPTION] failed ({type(e).__name__}: {e}) — boxes uncaptioned")
