@@ -543,9 +543,12 @@ def _load_reference_icon_images():
                     except Exception:
                         d.text((10, 6), glyph, font=font, fill=(30, 30, 30))
                     icons.append((name, im))
-            print(f"[ICONREF] rendered {len(icons)} icons from the font.")
+            print(f"[ICONREF] rendered {len(icons)} icons from the font.", flush=True)
         except Exception as e:
-            print(f"[ICONREF] font render failed: {e}")
+            print(f"[ICONREF] font render failed: {type(e).__name__}: {e}", flush=True)
+    else:
+        print(f"[ICONREF] font not found at {ICON_FONT_PATH} / {ICON_CODEPOINTS_PATH} "
+              f"(cwd={os.getcwd()})", flush=True)
     return icons
 
 
@@ -554,19 +557,27 @@ def _load_reference_icon_images():
 ICON_REF_CACHE = "weights/icon_ref_cache.pt"
 
 
+def _log(msg):
+    """Flushed logging — background-thread prints are block-buffered under pm2
+    and otherwise never appear until the process exits."""
+    print(msg, flush=True)
+
+
 def build_icon_reference():
     """Embed the reference icon IMAGES and populate icon_ref_emb. Loads from a
     disk cache when the icon set is unchanged (fast); otherwise embeds once and
     caches. Runs on a BACKGROUND thread (see startup) so it never blocks the
     service — image-matching simply switches on when this finishes."""
     global icon_ref_emb, icon_ref_names
+    _log("[ICONREF] background build starting…")
     if clip_model is None:
+        _log("[ICONREF] ABORT: SigLIP/CLIP model not loaded — image matching unavailable.")
         return
     import torch
     refs = _load_reference_icon_images()
     if not refs:
-        print("[ICONREF] no reference icons found — add reference_icons/*.png or run "
-              "download_icon_font.sh. Image icon-matching disabled (other layers still work).")
+        _log("[ICONREF] no reference icons found — add reference_icons/*.png or run "
+             "download_icon_font.sh. Image icon-matching disabled (other layers still work).")
         return
     names = [n for n, _ in refs]
 
@@ -577,16 +588,16 @@ def build_icon_reference():
             if cached.get("names") == names and cached.get("emb") is not None:
                 icon_ref_emb = cached["emb"]
                 icon_ref_names = names
-                print(f"[ICONREF] loaded {len(names)} reference embeddings from cache.")
+                _log(f"[ICONREF] loaded {len(names)} reference embeddings from cache.")
                 return
-            print("[ICONREF] cache stale (icon set changed) — re-embedding.")
+            _log("[ICONREF] cache stale (icon set changed) — re-embedding.")
         except Exception as e:
-            print(f"[ICONREF] cache load failed ({e}) — re-embedding.")
+            _log(f"[ICONREF] cache load failed ({e}) — re-embedding.")
 
     image_processor = getattr(clip_processor, "image_processor", clip_processor)
     imgs = [im for _, im in refs]
     try:
-        print(f"[ICONREF] embedding {len(names)} reference icons (one-time, in background)…")
+        _log(f"[ICONREF] embedding {len(names)} reference icons (one-time, in background)…")
         embs = []
         with torch.no_grad():
             for i in range(0, len(imgs), 128):     # batch to bound memory
@@ -594,17 +605,18 @@ def build_icon_reference():
                 e = _as_embedding(clip_model.get_image_features(pixel_values=pin["pixel_values"]))
                 e = e / e.norm(dim=-1, keepdim=True)
                 embs.append(e)
+                _log(f"[ICONREF]   … {min(i + 128, len(imgs))}/{len(imgs)} embedded")
         emb = torch.cat(embs, dim=0)
         icon_ref_emb = emb
         icon_ref_names = names
         try:
             torch.save({"names": names, "emb": emb}, ICON_REF_CACHE)
         except Exception as e:
-            print(f"[ICONREF] cache save failed: {e}")
-        print(f"[ICONREF] embedded + cached {len(names)} reference icons for image-to-image matching.")
+            _log(f"[ICONREF] cache save failed: {e}")
+        _log(f"[ICONREF] embedded + cached {len(names)} reference icons for image-to-image matching.")
     except Exception as e:
         import traceback
-        print(f"[ICONREF] embed failed: {e}")
+        _log(f"[ICONREF] embed FAILED: {type(e).__name__}: {e}")
         traceback.print_exc()
 
 
