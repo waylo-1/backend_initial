@@ -100,7 +100,12 @@ def load_models():
                 clip_processor = None
     load_custom_vocab()
     build_icon_vocab()
-    build_icon_reference()   # image-to-image icon namer
+    # Image-to-image icon namer: build the reference library on a BACKGROUND
+    # thread so startup is instant even the first time (embedding ~2000 icons is
+    # minutes on this CPU). It's cached to disk after the first run, and
+    # image-matching turns on automatically once it's ready.
+    import threading
+    threading.Thread(target=build_icon_reference, name="icon-reference", daemon=True).start()
     print("[YOLO] Service ready.")
 
 
@@ -544,8 +549,16 @@ def _load_reference_icon_images():
     return icons
 
 
+# Cache the (slow) reference embeddings to disk so we embed the ~2000 icons ONCE,
+# not on every restart — on this CPU that walk is minutes.
+ICON_REF_CACHE = "weights/icon_ref_cache.pt"
+
+
 def build_icon_reference():
-    """Embed the reference icon IMAGES once (startup). Populates icon_ref_emb."""
+    """Embed the reference icon IMAGES and populate icon_ref_emb. Loads from a
+    disk cache when the icon set is unchanged (fast); otherwise embeds once and
+    caches. Runs on a BACKGROUND thread (see startup) so it never blocks the
+    service — image-matching simply switches on when this finishes."""
     global icon_ref_emb, icon_ref_names
     if clip_model is None:
         return
@@ -555,10 +568,25 @@ def build_icon_reference():
         print("[ICONREF] no reference icons found — add reference_icons/*.png or run "
               "download_icon_font.sh. Image icon-matching disabled (other layers still work).")
         return
-    image_processor = getattr(clip_processor, "image_processor", clip_processor)
     names = [n for n, _ in refs]
+
+    # Disk cache: reuse embeddings when the exact icon set matches.
+    if os.path.exists(ICON_REF_CACHE):
+        try:
+            cached = torch.load(ICON_REF_CACHE, map_location="cpu")
+            if cached.get("names") == names and cached.get("emb") is not None:
+                icon_ref_emb = cached["emb"]
+                icon_ref_names = names
+                print(f"[ICONREF] loaded {len(names)} reference embeddings from cache.")
+                return
+            print("[ICONREF] cache stale (icon set changed) — re-embedding.")
+        except Exception as e:
+            print(f"[ICONREF] cache load failed ({e}) — re-embedding.")
+
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
     imgs = [im for _, im in refs]
     try:
+        print(f"[ICONREF] embedding {len(names)} reference icons (one-time, in background)…")
         embs = []
         with torch.no_grad():
             for i in range(0, len(imgs), 128):     # batch to bound memory
@@ -566,9 +594,14 @@ def build_icon_reference():
                 e = _as_embedding(clip_model.get_image_features(pixel_values=pin["pixel_values"]))
                 e = e / e.norm(dim=-1, keepdim=True)
                 embs.append(e)
-        icon_ref_emb = torch.cat(embs, dim=0)
+        emb = torch.cat(embs, dim=0)
+        icon_ref_emb = emb
         icon_ref_names = names
-        print(f"[ICONREF] embedded {len(names)} reference icons for image-to-image matching.")
+        try:
+            torch.save({"names": names, "emb": emb}, ICON_REF_CACHE)
+        except Exception as e:
+            print(f"[ICONREF] cache save failed: {e}")
+        print(f"[ICONREF] embedded + cached {len(names)} reference icons for image-to-image matching.")
     except Exception as e:
         import traceback
         print(f"[ICONREF] embed failed: {e}")
