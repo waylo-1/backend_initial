@@ -396,13 +396,15 @@ final result (open → navigate → perform the action → confirm). Never end t
 before the task is truly done.
 - Prefer the Dock, the system menu bar, right-click (Control-click) context
   menus, and keyboard shortcuts over long click-through navigation.
-- OPEN APPS THE QUICKEST WAY: to open an app or a system area, click its icon in
-  the Dock if it's likely there; otherwise open it via SPOTLIGHT using three
-  steps: a "key" step instructing "Press Command+Space to open Spotlight" (key
-  "space"), a "type" step typing the app's exact name, and a "key" step "Press
-  Return" (key "return"). Use Spotlight whenever the app may NOT be in the Dock
-  (e.g. Photo Booth, Disk Utility). Do NOT route through the Apple menu or nested
-  menus to launch something.
+- DO NOT add steps to open/launch the app the task is ABOUT — Waylo opens that
+  app itself before step 1. Start the plan at the first action INSIDE the app
+  (e.g. for "take a photo in Photo Booth", step 1 is clicking the red camera
+  button, NOT opening Photo Booth). Only add open/launch steps for a DIFFERENT,
+  secondary app the task later needs (e.g. pasting into Notes).
+- If you ever DO need to open a secondary app: click its Dock icon if likely
+  there, else SPOTLIGHT — a "key" step "Press Command+Space" (key "space"), a
+  "type" step with its exact name, a "key" step "Press Return" (key "return").
+  Do NOT route through the Apple menu or nested menus to launch something.
 - FINISH THE WHOLE TASK, even across MULTIPLE apps. Do not stop after the first
   app. Example: "take a photo and send it on WhatsApp" = open Photo Booth → take
   the photo → locate/open the saved photo → open WhatsApp → open the chat →
