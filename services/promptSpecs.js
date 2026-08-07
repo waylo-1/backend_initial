@@ -418,6 +418,17 @@ final result (open → navigate → perform the action → confirm). Never end t
 before the task is truly done.
 - Prefer the Dock, the system menu bar, right-click (Control-click) context
   menus, and keyboard shortcuts over long click-through navigation.
+- BUT when the app shows a COMMON action as a visible TOOLBAR button — archive,
+  delete/trash, reply, reply-all, forward, flag/favourite, share, print, add/new,
+  compose, back/forward, or a view toggle (Mail, Finder, Notes, Preview, Photos
+  all have these) — prefer clicking that TOOLBAR button over walking the menu
+  bar. It's ONE obvious click for a non-technical user, and macOS names these
+  buttons in the accessibility tree so they resolve reliably. For such a step:
+  put the button's plain NAME in "targetLabel" (e.g. "Archive", "Delete",
+  "Reply", "Share"), set "screenRegion" to "ribbon" (the toolbar), "controlKind"
+  "button", and "targetType" "icon" (they're glyphs with no visible text). Only
+  fall back to the menu bar when the app has no such toolbar button. Do NOT
+  phrase these as "the Archive menu option" or route through a top menu.
 - DO NOT add steps to open/launch the app the task is ABOUT — Waylo opens that
   app itself before step 1. Start the plan at the first action INSIDE the app
   (e.g. for "take a photo in Photo Booth", step 1 is clicking the red camera

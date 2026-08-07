@@ -65,7 +65,11 @@ const PLAN_PROMPT_VERSIONS = {
   // v19 (2026-08-04): in-web-app delete/trash/archive is an ICON on the page's
   // toolbar, never the macOS Finder Bin. "Delete an email in Gmail" = select the
   // email (user-choice) then click the trash ICON — old plans opened the Bin.
-  macos: 'v19',
+  // v20 (2026-08-04): prefer the visible TOOLBAR button (archive/delete/reply/
+  // share/flag/view-toggle) over the menu bar for common NATIVE-app actions —
+  // one obvious click, AX-named, and it exercises icon detection. Old plans
+  // routed "archive mail" / "gallery view" through the menu bar and confused.
+  macos: 'v20',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
