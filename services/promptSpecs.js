@@ -98,20 +98,27 @@ GRANULARITY — one physical action per step:
 - Typing text is its OWN step, separate from tapping the field that opens the keyboard.
 - Submitting (tapping a search/send/confirm button) is its OWN step, separate from typing.
 
-STEP 1 IS SPECIAL — always combine "reveal the app" + "open the app" in ONE instruction,
-because the app doesn't know if the target app is already pinned on the visible home
-screen or hidden in the app drawer:
-  instruction: "Swipe up from the bottom of the screen to see all your apps, then tap
-  the [color] [App Name] picture button in the middle."
-  findDescription / elementType / visualDescription still point at the APP ICON itself
-  (elementType APP_ICON) — never leave findDescription empty or describe the swipe
-  gesture itself, since that is what the app actually searches the screen for.
-  fallbackHint MUST route through the app drawer's search, not sideways swiping —
-  scrolling/swiping through pages of icons is slow and easy to get lost in, while
-  every Android launcher's app drawer has a search bar that finds any app by name
-  in one step. Use this exact shape: "swipe up, then type [App Name] in the search
+STEP 1 IS SPECIAL — this is the ONLY step whose instruction must NOT bake in a
+gesture ("swipe up", "swipe left") OR a location. The PHONE decides how to open
+the app at run time: if the app's icon is already visible it drops the on-screen
+dot straight on it; if not, it walks the user into the app drawer and search,
+adapting to whatever gesture that particular launcher actually uses. Baking a
+fixed gesture into these words fights that — "swipe up" is wrong on a launcher
+whose drawer opens with a sideways swipe, and sends the user the wrong way.
+  instruction: a short, warm "Open [App Name]." and nothing more — no swipe, no
+  "tap the icon", no corner. Examples: "Open WhatsApp." / "Let's open YouTube."
+  findDescription / elementType / visualDescription STILL point at the APP ICON
+  itself (elementType APP_ICON) — never leave findDescription empty or describe a
+  gesture, since findDescription is what the phone searches the screen for to
+  place the dot when the icon IS visible.
+  fallbackHint MUST route through the app drawer's SEARCH — this is exactly what
+  the phone speaks if the icon isn't visible and it needs to guide the user into
+  the drawer. Use this exact shape: "swipe up, then type [App Name] in the search
   bar at the top" (fill in the real app name). Do not suggest "swipe sideways to
-  see more apps" or similar paging hints for this step.
+  see more apps" or similar paging hints.
+  This step is EXEMPT from the LANDMARKS rule below: "Open [App Name]." has no
+  location on purpose, because the phone supplies the location itself (the dot, or
+  the spoken drawer-search guidance).
 
 LANDMARKS — every instruction says WHERE in plain words: "at the top of the screen",
 "at the bottom", "at the bottom right corner", "in the middle", "at the bottom of the
@@ -139,6 +146,21 @@ moved. So for these three element kinds specifically:
 For all other elements (search icons, send buttons, keyboard keys, etc.),
 corner language is still fine when you're actually confident, as in the
 examples below.
+
+COLOR UNCERTAINTY — a wrong color is worse than no color, exactly like a wrong
+corner. An app's in-app control colors (a play/watch button, a send button, a
+confirm button) change between app versions, themes, and dark mode, and are the
+kind of detail most often misremembered.
+- Do NOT put a color word in the instruction for an IN-APP control unless you
+  are genuinely certain of it. Describe the control by its LABEL or SHAPE
+  instead, and lean on the on-device red box to show which one:
+  BAD:  "Tap the yellow play button in the middle of the screen."
+  GOOD: "Tap the play button in the middle — it looks like a triangle."
+  GOOD: "Tap the Watch button in the middle of the screen."
+- Color IS still fine for a step-1 APP ICON (brand colors are stable and well
+  known, e.g. "the green WhatsApp button", "the red YouTube button").
+- Put your best color guess in visualDescription (which the app uses to search),
+  NOT in the spoken instruction, whenever you're unsure.
 
 ONE ELEMENT PER INSTRUCTION — never hedge between two possible UI layouts in a
 single instruction. An instruction must name exactly ONE element in plain words,
@@ -196,7 +218,7 @@ EXAMPLE 1 — Task: "open youtube and search for a song"
   "steps": [
     {
       "stepNumber": 1,
-      "instruction": "Swipe up from the bottom of the screen to see all your apps, then tap the red YouTube picture button.",
+      "instruction": "Let's open YouTube.",
       "findDescription": "youtube app icon",
       "elementType": "APP_ICON",
       "screenRegion": "center",
@@ -260,7 +282,7 @@ EXAMPLE 2 — Task: "send a message to a friend on whatsapp"
   "steps": [
     {
       "stepNumber": 1,
-      "instruction": "Swipe up from the bottom of the screen to see all your apps, then tap the green WhatsApp picture button.",
+      "instruction": "Open WhatsApp.",
       "findDescription": "whatsapp app icon",
       "elementType": "APP_ICON",
       "screenRegion": "center",
