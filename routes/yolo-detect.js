@@ -9,7 +9,12 @@ const router = express.Router();
 const PYTHON_SERVICE_URL = process.env.YOLO_SERVICE_URL;
 // A CPU-only box running two YOLO models (plus optional CLIP/SigLIP matching)
 // legitimately needs more than the old 5s. Configurable via YOLO_TIMEOUT_MS.
-const YOLO_TIMEOUT_MS = parseInt(process.env.YOLO_TIMEOUT_MS || '12000', 10);
+// YOLO (~10s on the t3.medium CPU) + the image-to-image dataset matching now
+// runs past the old 12s and the request was aborted before it could answer, so
+// the whole dataset step was silently skipped. 25s ceiling gives it room. This
+// is a CEILING, not a delay — a faster box returns in ~2s and never hits it.
+// (Real UX fix is resizing the EC2 instance; then this rarely matters.)
+const YOLO_TIMEOUT_MS = parseInt(process.env.YOLO_TIMEOUT_MS || '25000', 10);
 
 // Learn a new icon concept (user-verified detections teach the captioner).
 router.post('/vocab/add', async (req, res) => {
