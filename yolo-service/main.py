@@ -503,8 +503,12 @@ icon_ref_names: list = [] # [R] names, aligned to icon_ref_emb rows
 ICON_REF_DIR = "reference_icons"
 ICON_FONT_PATH = os.environ.get("ICON_FONT_PATH", "weights/icon_font/MaterialIcons-Regular.ttf")
 ICON_CODEPOINTS_PATH = os.environ.get("ICON_CODEPOINTS_PATH", "weights/icon_font/MaterialIcons-Regular.codepoints")
-# Minimum cosine similarity to accept a reference-icon label for a box.
-IMAGE_CAPTION_MIN_SIM = float(os.environ.get("ICON_MATCH_MIN_SIM", "0.55"))
+# Minimum cosine similarity to accept a reference-icon label for a box. Raised
+# to 0.75 after field data showed clean Material FONT glyphs vs real macOS icons
+# have a big domain gap — at 0.55 it mislabelled (archive -> "smart screen") and
+# could pick a wrong box. High bar = image-match only fires on a strong, safe
+# match; the durable fix is REAL captured icons as references (see notes).
+IMAGE_CAPTION_MIN_SIM = float(os.environ.get("ICON_MATCH_MIN_SIM", "0.75"))
 
 
 def _load_reference_icon_images():
