@@ -512,10 +512,13 @@ IMAGE_CAPTION_MIN_SIM = float(os.environ.get("ICON_MATCH_MIN_SIM", "0.75"))
 
 
 def _load_reference_icon_images():
-    """Returns [(name, PIL.Image)] reference icons — from reference_icons/*.png
-    if present, else rendered from the icon font + codepoints. Empty list means
-    image matching stays disabled (service still works via the old paths)."""
+    """Returns [(name, PIL.Image)] reference icons from BOTH sources, unioned so
+    the dataset spans platforms: real captured/seed icons in reference_icons/
+    (SF Symbols = macOS/Pages/Mail/Finder, plus learned real captures) AND glyphs
+    rendered from the Material icon font (web/Chrome/Gmail-style). Empty means
+    image matching stays disabled (service still works via the other layers)."""
     icons = []
+    n_png = 0
     if os.path.isdir(ICON_REF_DIR):
         for fn in sorted(os.listdir(ICON_REF_DIR)):
             if fn.lower().endswith((".png", ".jpg", ".jpeg")):
@@ -525,9 +528,12 @@ def _load_reference_icon_images():
                 name = re.sub(r"[^a-z0-9 ]", " ", stem.replace("_", " ").lower()).strip()
                 try:
                     icons.append((name, Image.open(os.path.join(ICON_REF_DIR, fn)).convert("RGB")))
+                    n_png += 1
                 except Exception:
                     pass
-    if not icons and os.path.exists(ICON_FONT_PATH) and os.path.exists(ICON_CODEPOINTS_PATH):
+        print(f"[ICONREF] loaded {n_png} reference_icons/*.png (real/seed).", flush=True)
+    # ALSO render the Material font (web-style coverage), IN ADDITION to the PNGs.
+    if os.path.exists(ICON_FONT_PATH) and os.path.exists(ICON_CODEPOINTS_PATH):
         try:
             from PIL import ImageFont, ImageDraw
             font = ImageFont.truetype(ICON_FONT_PATH, 44)
@@ -550,12 +556,10 @@ def _load_reference_icon_images():
                     except Exception:
                         d.text((10, 6), glyph, font=font, fill=(30, 30, 30))
                     icons.append((name, im))
-            print(f"[ICONREF] rendered {len(icons)} icons from the font.", flush=True)
+            print(f"[ICONREF] +{len(icons) - n_png} icons rendered from the Material font "
+                  f"(total {len(icons)} references).", flush=True)
         except Exception as e:
             print(f"[ICONREF] font render failed: {type(e).__name__}: {e}", flush=True)
-    else:
-        print(f"[ICONREF] font not found at {ICON_FONT_PATH} / {ICON_CODEPOINTS_PATH} "
-              f"(cwd={os.getcwd()})", flush=True)
     return icons
 
 
