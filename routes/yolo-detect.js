@@ -27,6 +27,22 @@ router.post('/vocab/add', async (req, res) => {
   }
 });
 
+// Add a real labelled icon to the image-match reference library (seed + learned).
+router.post('/icon-reference', async (req, res) => {
+  if (!PYTHON_SERVICE_URL) return res.status(503).json({ error: 'YOLO service not configured' });
+  try {
+    const r = await fetch(`${PYTHON_SERVICE_URL}/icon-reference`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label: req.body?.label, image_b64: req.body?.image_b64 }),
+    });
+    return res.status(r.status).json(await r.json());
+  } catch (err) {
+    console.error('[YOLO] icon-reference failed:', err.message);
+    return res.status(502).json({ error: 'icon-reference failed' });
+  }
+});
+
 router.post('/detect-elements', async (req, res) => {
   const { screenshot_b64, target_label, step_instruction, screen_region } = req.body || {};
 

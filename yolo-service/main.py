@@ -519,7 +519,10 @@ def _load_reference_icon_images():
     if os.path.isdir(ICON_REF_DIR):
         for fn in sorted(os.listdir(ICON_REF_DIR)):
             if fn.lower().endswith((".png", ".jpg", ".jpeg")):
-                name = re.sub(r"[^a-z0-9 ]", " ", os.path.splitext(fn)[0].replace("_", " ").lower()).strip()
+                # filename is "<label>.png" or "<label>__<hash>.png" (uploads add
+                # a hash so same-label captures don't overwrite) — drop the hash.
+                stem = os.path.splitext(fn)[0].split("__")[0]
+                name = re.sub(r"[^a-z0-9 ]", " ", stem.replace("_", " ").lower()).strip()
                 try:
                     icons.append((name, Image.open(os.path.join(ICON_REF_DIR, fn)).convert("RGB")))
                 except Exception:
@@ -676,6 +679,46 @@ def match_target_by_image_caption(boxes: list[dict], target_label: str) -> bool:
     return False
 
 
+def add_icon_reference(label: str, img: Image.Image) -> int:
+    """Embed a REAL captured/seed icon and append it to the live reference
+    library, and persist it as a PNG so it survives restart. This is how the
+    labelled-icon dataset GROWS — from confirmed finds and the seed set. Returns
+    the new library size."""
+    global icon_ref_emb, icon_ref_names
+    if clip_model is None:
+        return 0
+    import torch
+    image_processor = getattr(clip_processor, "image_processor", clip_processor)
+    with torch.no_grad():
+        pin = image_processor(images=[img], return_tensors="pt")
+        e = _as_embedding(clip_model.get_image_features(pixel_values=pin["pixel_values"]))
+        e = e / e.norm(dim=-1, keepdim=True)          # [1, D]
+    if icon_ref_emb is None:
+        icon_ref_emb = e
+        icon_ref_names = [label]
+    else:
+        icon_ref_emb = torch.cat([icon_ref_emb, e], dim=0)
+        icon_ref_names = icon_ref_names + [label]
+    # Persist as a PNG in reference_icons/ so it's reloaded on restart. A content
+    # hash in the name keeps multiple real captures of the same concept.
+    try:
+        os.makedirs(ICON_REF_DIR, exist_ok=True)
+        import hashlib
+        h = hashlib.md5(img.tobytes()).hexdigest()[:8]
+        safe = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "icon"
+        img.save(os.path.join(ICON_REF_DIR, f"{safe}__{h}.png"))
+    except Exception as ex:
+        _log(f"[ICONREF] reference save failed: {ex}")
+    # The startup cache is keyed by the icon-name set; drop it so the enlarged
+    # set is re-embedded fresh next boot (in-memory is already updated for now).
+    try:
+        if os.path.exists(ICON_REF_CACHE):
+            os.remove(ICON_REF_CACHE)
+    except Exception:
+        pass
+    return len(icon_ref_names)
+
+
 def caption_boxes(img: Image.Image, boxes: list[dict], max_boxes: int = 36) -> None:
     """Writes a best-guess `caption` on each box via zero-shot vocab matching."""
     if clip_model is None or icon_vocab_emb is None:
@@ -783,6 +826,30 @@ async def detect(req: DetectRequest):
         merged_count=len(merged),
         match_applied=match_applied,
     )
+
+
+class IconRefRequest(BaseModel):
+    label: str          # what the icon IS ("archive", "reply", "attach")
+    image_b64: str      # a real captured/seed icon image (PNG/JPEG)
+
+
+@app.post("/icon-reference")
+async def icon_reference(req: IconRefRequest):
+    """Add a REAL labelled icon to the image-match reference library (the
+    labelled-icon dataset). Called by the seed tool and on every confirmed find,
+    so image-matching learns exactly what each icon looks like. Fleet-wide."""
+    if clip_model is None:
+        return {"added": False, "reason": "no match model"}
+    label = re.sub(r"[^a-z0-9 ]", " ", (req.label or "").lower()).strip()
+    if len(label) < 2:
+        return {"added": False, "reason": "label too short"}
+    try:
+        img = Image.open(io.BytesIO(base64.b64decode(req.image_b64))).convert("RGB")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"bad image: {e}")
+    loop = asyncio.get_running_loop()
+    total = await loop.run_in_executor(executor, add_icon_reference, label, img)
+    return {"added": True, "label": label, "total": total}
 
 
 class VocabRequest(BaseModel):
