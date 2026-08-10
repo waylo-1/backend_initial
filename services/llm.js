@@ -99,8 +99,21 @@ async function generateEnrichedSteps(task) {
  * what is actually on screen means: no "open the app" step when it's already
  * frontmost, and targetLabels copied from REAL visible labels instead of
  * guessed ones (the #1 cause of detection misses). */
-async function generateDesktopSteps(task, screenContext, sessionContext) {
+async function generateDesktopSteps(task, screenContext, sessionContext, userContext) {
   let prompt = `Task: ${task}`;
+
+  // The user's own note about where they are right now — ground truth for the
+  // starting point, above what the AX snapshot can infer (a native app open
+  // behind another window, or "I'll be in Pages"). Highest-priority context.
+  if (userContext && typeof userContext === 'string' && userContext.trim()) {
+    prompt += `
+
+THE USER SAYS THIS ABOUT THEIR CURRENT SITUATION (treat as ground truth for where to START):
+"${userContext.trim().slice(0, 400)}"
+
+- If they say an app/document is already open, do NOT plan opening it — start from that state.
+- If they name where they are, begin the plan from there; skip any earlier navigation.`;
+  }
 
   // Learning-session continuity: a compact summary of what the user has just
   // done in this skill session, so follow-ups make sense ("now make it bold"

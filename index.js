@@ -118,8 +118,15 @@ app.post('/plan', planLimiter, async (req, res) => {
       const sessionContext = typeof req.body.sessionContext === 'string'
         ? req.body.sessionContext.slice(0, 1200) : '';
 
-      // Semantic cache: a paraphrase of a prior task returns instantly, no Nova call.
-      if (!sessionContext) {
+      // Optional free-text "where am I now" the user typed — ground truth for the
+      // plan's starting point (native apps the AX snapshot can't fully see).
+      const userContext = typeof req.body.userContext === 'string'
+        ? req.body.userContext.slice(0, 400).trim() : '';
+
+      // Semantic cache: a paraphrase of a prior task returns instantly, no LLM
+      // call. Skip it when the user gave explicit starting context — the same
+      // task from a different starting state needs a different plan.
+      if (!sessionContext && !userContext) {
         const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
         if (cachedPlan) {
           console.log(`Plan semantic-cache HIT (macOS) for: ${task}`);
@@ -136,7 +143,7 @@ app.post('/plan', planLimiter, async (req, res) => {
 
       let plan;
       try {
-        plan = await generateDesktopSteps(task, screenContext, sessionContext);
+        plan = await generateDesktopSteps(task, screenContext, sessionContext, userContext);
       } catch (genError) {
         if (!isQuotaOrThrottleError(genError)) throw genError;
 
