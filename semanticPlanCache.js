@@ -107,7 +107,11 @@ const PLAN_PROMPT_VERSIONS = {
   // step (copy icon appears late & unfindable, stale cache had "Close dialog").
   // Also (client): accessibleName deep-AX now runs BEFORE OCR so a duplicate
   // visible label can't win over the real control. Re-plan.
-  macos: 'v29',
+  // v30 (2026-08-10): AI Studio copy is now a POINTED click icon (Gemini dots it,
+  // like the 'Create key' confirm) instead of describe-only. Paired with a client
+  // guard that ignores a stale close/cancel cached label for a non-close step
+  // (kills the 'Close dialog' pollution). Re-plan.
+  macos: 'v30',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
