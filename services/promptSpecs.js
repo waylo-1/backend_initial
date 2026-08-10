@@ -686,14 +686,17 @@ Rules:
       automatically the moment it reaches that domain, however the user navigates
       (typing, bookmark, history). Do NOT emit separate address-bar / type / Return
       steps, and do NOT plan clicking a bookmark.
-    * PERSONAL / ACCOUNT items in a just-opened dropdown — "your username", "your
-      profile", "your account", the entry showing the user's own name — are small,
-      user-specific, and open in a fresh menu that vision mislocates. Do NOT try to
-      point at an exact pixel. Set "advanceOnAnyClick": true and "targetLabel": "",
-      and describe generically ("click your username at the top of the menu"). The
-      app will describe it and advance when the user clicks. Same for "click your
-      profile picture/avatar to open the account menu" when it has no reliable
-      accessibleName.
+    * The PROFILE / AVATAR icon that OPENS the account menu IS a normal icon —
+      POINT at it. targetType "icon", targetLabel "", and set "accessibleName" to
+      its real aria-label (very commonly "Avatar", "Account", "Your profile", or
+      the user's own name). Do NOT mark the avatar advanceOnAnyClick — it has a
+      reliable accessible name and the app finds it exactly.
+    * Only the PERSONAL ITEMS *INSIDE* the just-opened account dropdown — "your
+      username", "your profile name", the entry showing the user's OWN name — are
+      the ones to describe, not point at: they're small, user-specific, and vision
+      mislocates them in a fresh menu. For THOSE set "advanceOnAnyClick": true and
+      "targetLabel": "", and describe generically ("click your username at the top
+      of the menu"). The app describes it and advances when the user clicks.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
