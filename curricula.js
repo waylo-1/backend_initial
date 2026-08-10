@@ -44,13 +44,19 @@ const CURRICULA = [
   {
     id: 'google-docs',
     displayName: 'Google Docs',
-    aliases: ['docs', 'google doc'],
-    description: 'Write, format and share documents.',
+    aliases: ['docs', 'google doc', 'resume', 'write a resume', 'cv'],
+    description: 'Write your first resume — and learn Docs by asking as you go.',
     lessons: [
-      { title: 'Start a document', task: 'open a new Google Docs document in Chrome' },
-      { title: 'Add a heading', task: 'type a title and make it a Heading 1 style in Google Docs' },
+      // Flagship: build a resume, learning each skill in context. Ask follow-ups
+      // ("now make my name bigger", "add a bullet") — the session remembers.
+      { title: 'Start your resume', task: 'open a new Google Docs document in Chrome for a resume' },
+      { title: 'Add your name as a title', task: 'type your name at the top and make it a Title style in Google Docs' },
+      { title: 'Add a section heading', task: 'type a section heading like Experience and make it Heading 1 in Google Docs' },
       { title: 'Make text bold', task: 'select some text and make it bold in Google Docs' },
-      { title: 'Insert a chart', task: 'insert a bar chart into the document in Google Docs' },
+      { title: 'Add a bulleted list', task: 'make a bulleted list in Google Docs' },
+      { title: 'Change the font size', task: 'change the font size of the selected text in Google Docs' },
+      { title: 'Insert a link', task: 'insert a link into the Google Docs document' },
+      { title: 'Download as PDF', task: 'download the Google Docs document as a PDF' },
       { title: 'Share the document', task: 'share the Google Docs document with someone by email' },
     ],
   },

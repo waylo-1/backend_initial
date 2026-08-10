@@ -114,7 +114,10 @@ const PLAN_PROMPT_VERSIONS = {
   // v31 (2026-08-10): XPRIZE curriculum 2 — macOS System Settings navigation
   // (sidebar category → right-pane control) with exact flagship paths (bigger
   // text, Wi-Fi, Dark Mode, Bluetooth, wallpaper). Re-plan.
-  macos: 'v31',
+  // v32 (2026-08-10): XPRIZE curriculum 3 — Google Docs "write a resume" flow +
+  // expanded Docs toolbar accessible-name seeds (bold/italic/lists/link/styles/
+  // font-size, File>Download>PDF). Learn-the-app follow-ups use sessionContext.
+  macos: 'v32',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

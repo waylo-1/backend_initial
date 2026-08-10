@@ -652,8 +652,14 @@ Rules:
       formatting → "Formatting options"; insert link → "Insert link"; delete
       draft/trash → "Discard draft"; insert photo → "Insert photo"; the compose
       button → "Compose" (it keeps this name even when collapsed to a pencil).
-    * Google Docs — comment → "Add comment"; insert image → "Insert image";
-      insert link → "Insert link (⌘K)"; bold → "Bold (⌘B)"; share → "Share".
+    * Google Docs — bold → "Bold (⌘B)"; italic → "Italic (⌘I)"; underline →
+      "Underline (⌘U)"; bulleted list → "Bulleted list (⌘+Shift+8)"; numbered list
+      → "Numbered list (⌘+Shift+7)"; insert link → "Insert link (⌘K)"; insert image
+      → "Insert image"; add comment → "Add comment"; the style menu → "Styles";
+      share → "Share". Font SIZE is a numeric field labelled "Font size". A
+      Title/Heading style is applied via the "Styles" dropdown then the style name
+      ("Title", "Heading 1"). Download-as-PDF is a MENU path (all text): File →
+      Download → "PDF Document (.pdf)" — prefer it over any toolbar icon.
     * Google Sheets — insert chart → "Insert chart"; functions → "Functions".
     * YouTube — like → "like this video"; search → "Search"; settings → "Settings".
     * Chrome (browser chrome) — new tab → "New Tab"; profile → "Account";
