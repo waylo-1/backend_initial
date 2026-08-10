@@ -23,6 +23,7 @@ const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
 const stepLabelCache = require('./stepLabelCache');
 const pickMemory = require('./pickMemory');
+const users = require('./users');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
@@ -104,6 +105,12 @@ app.post('/plan', planLimiter, async (req, res) => {
         success: false,
         error: 'Task is required and must be a non-empty string'
       });
+    }
+
+    // Usage tracking (business evidence + the free-tier counter). The app sends
+    // the signed-in user's email; fire-and-forget so it never slows a plan.
+    if (req.body.userEmail) {
+      users.trackUsage(req.body.userEmail, task, 'task', platform || '').catch(() => {});
     }
 
     // macOS desktop companion (Waylo Desktop) uses a different element model
@@ -455,6 +462,96 @@ app.get('/curriculum/:query', (req, res) => {
   const { id, displayName, description, lessons } = c;
   res.json({ id, displayName, description, lessons });
 });
+
+// ── Users + usage (business evidence) ───────────────────────────────────────
+// POST /register — the Vercel sign-in page OR the app registers an email.
+// Body: { email, name?, source? }  ("source": "website" | "app" | campaign tag)
+app.post('/register', async (req, res) => {
+  try {
+    const email = await users.registerUser(req.body?.email, req.body?.name, req.body?.source);
+    if (!email) return res.status(400).json({ ok: false, error: 'a valid email is required' });
+    const user = await users.getUser(email);
+    return res.json({ ok: true, email, plan: user?.plan || 'free' });
+  } catch (e) {
+    console.error('[users] register failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'register failed' });
+  }
+});
+
+// POST /usage — generic event logger (task completions, page views, etc.).
+// Body: { email?, task?, event? }  (event defaults to "task")
+app.post('/usage', async (req, res) => {
+  try {
+    await users.trackUsage(req.body?.email, req.body?.task, req.body?.event || 'task', req.body?.platform || '');
+    return res.json({ ok: true });
+  } catch (e) {
+    return res.status(500).json({ ok: false });
+  }
+});
+
+// GET /admin/stats(.json) — analytics dashboard (product + funnel evidence).
+// Guarded by ?key=ADMIN_KEY when ADMIN_KEY is set; open otherwise (dev).
+function adminAllowed(req) {
+  const key = process.env.ADMIN_KEY;
+  return !key || req.query.key === key;
+}
+app.get('/admin/stats.json', async (req, res) => {
+  if (!adminAllowed(req)) return res.status(401).json({ error: 'unauthorized' });
+  try { return res.json(await users.getStats()); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get('/admin/stats', async (req, res) => {
+  if (!adminAllowed(req)) return res.status(401).send('unauthorized');
+  try {
+    const s = await users.getStats();
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderStatsHTML(s));
+  } catch (e) {
+    return res.status(500).send('error: ' + e.message);
+  }
+});
+
+function renderStatsHTML(s) {
+  const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const maxDaily = Math.max(1, ...s.daily.map((d) => d.n));
+  const bars = s.daily.map((d) =>
+    `<div class="bar"><div class="fill" style="height:${Math.round((d.n / maxDaily) * 120)}px" title="${d.n}"></div><span>${esc(d.day.slice(5))}</span></div>`).join('');
+  const rows = s.topTasks.map((t) => `<tr><td>${esc(t.task)}</td><td class="num">${t.n}</td></tr>`).join('') || '<tr><td colspan="2">No tasks yet</td></tr>';
+  const card = (label, value, sub = '') =>
+    `<div class="card"><div class="v">${esc(value)}</div><div class="l">${esc(label)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Waylo · live metrics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{color-scheme:light dark}
+  body{font:15px/1.5 -apple-system,system-ui,sans-serif;margin:0;padding:28px;background:#0b0d12;color:#e8ecf3}
+  h1{font-size:20px;margin:0 0 4px} .sub{color:#8a93a6;margin:0 0 22px;font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:26px}
+  .card{background:#151924;border:1px solid #232838;border-radius:14px;padding:16px 18px}
+  .card .v{font-size:30px;font-weight:700;letter-spacing:-.5px}
+  .card .l{color:#8a93a6;font-size:13px;margin-top:2px}
+  .card .s{color:#5f6b82;font-size:12px;margin-top:2px}
+  .panel{background:#151924;border:1px solid #232838;border-radius:14px;padding:18px;margin-bottom:20px}
+  .panel h2{font-size:14px;margin:0 0 14px;color:#b9c2d6;font-weight:600}
+  .chart{display:flex;align-items:flex-end;gap:8px;height:150px}
+  .bar{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1}
+  .bar .fill{width:70%;background:linear-gradient(#4f8cff,#2f6bf0);border-radius:5px 5px 0 0;min-height:3px}
+  .bar span{color:#5f6b82;font-size:10px}
+  table{width:100%;border-collapse:collapse} td{padding:7px 4px;border-bottom:1px solid #232838;font-size:13px}
+  td.num{text-align:right;color:#4f8cff;font-weight:600}
+</style></head><body>
+  <h1>Waylo — live metrics</h1>
+  <p class="sub">AI-native, in production · refreshed on load</p>
+  <div class="cards">
+    ${card('Registered users', s.registeredUsers)}
+    ${card('Paying customers', s.paidUsers, s.conversionPct + '% conversion')}
+    ${card('Tasks run (all time)', s.totalTasks)}
+    ${card('Tasks (7 days)', s.tasks7d)}
+    ${card('Active users (7d)', s.activeUsers7d)}
+  </div>
+  <div class="panel"><h2>Tasks per day (14 days)</h2><div class="chart">${bars || '<span class="sub">No data yet</span>'}</div></div>
+  <div class="panel"><h2>Top tasks</h2><table><tbody>${rows}</tbody></table></div>
+</body></html>`;
+}
 
 /**
  * POST /plan/learn
