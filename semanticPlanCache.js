@@ -98,7 +98,10 @@ const PLAN_PROMPT_VERSIONS = {
   // taught end-to-end (Get API key → Create API key → project user-choice → Copy);
   // AI Studio accessible-name seeds; VIEW/CHECK tasks end on an auto-advancing
   // info step (no click on a value you only read). Re-plan.
-  macos: 'v27',
+  // v28 (2026-08-10): AI Studio flow corrected from a live run — after Create API
+  // key: Choose an imported project → pick project (user-choice) → silent wait
+  // step → Copy API key (full name; "Copy" matched nothing). Re-plan.
+  macos: 'v28',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

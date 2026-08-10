@@ -659,9 +659,9 @@ Rules:
     * Chrome (browser chrome) — new tab → "New Tab"; profile → "Account";
       extensions → "Extensions"; bookmark this tab → "Bookmark this tab".
     * Google AI Studio (aistudio.google.com) — open the keys page → "Get API key";
-      make the key → "Create API key"; copy it → "Copy" (also try "Copy API key");
-      run a prompt → "Run"; start a prompt → "Create Prompt". The project chooser
-      inside the create-key dialog is a USER-CHOICE (see below).
+      make the key → "Create API key"; the project opener → "Choose an imported
+      project"; copy the key → "Copy API key" (the bare "Copy" matches nothing);
+      run a prompt → "Run". The project pick inside the dialog is a USER-CHOICE.
   For an app you don't have a known name for, still provide your best real
   aria-label/AXDescription (e.g. a share glyph is usually "Share"), and the app
   will fall back gracefully if it's not found.
@@ -701,19 +701,27 @@ Rules:
       mislocates them in a fresh menu. For THOSE set "advanceOnAnyClick": true and
       "targetLabel": "", and describe generically ("click your username at the top
       of the menu"). The app describes it and advances when the user clicks.
-- GOOGLE AI STUDIO — "get your first Gemini API key" (know this flow exactly):
-  (1) a url-gated step to reach the site ("awaitURL":"aistudio.google.com",
+- GOOGLE AI STUDIO — "get your first Gemini API key" (this EXACT flow, verified live):
+  (1) url-gated step to reach the site ("awaitURL":"aistudio.google.com",
       instruction "Open Google AI Studio: click the address bar, type
       aistudio.google.com and press Enter"). If already there, skip.
-  (2) click "Get API key" (targetType "icon"/"text", accessibleName "Get API key").
-  (3) click "Create API key" (accessibleName "Create API key").
-  (4) the create dialog asks WHICH Google Cloud project — this is user-specific, so
-      "advanceOnAnyClick": true, targetLabel "", describe it ("choose your project,
-      or pick 'Create API key in new project', then continue").
-  (5) once the key appears, click "Copy" (accessibleName "Copy", also "Copy API
-      key") — an "info"-style success is fine here.
-  (6) a final "info" step: "Your API key is copied. Paste it somewhere safe and
-      never share it." Keep the whole flow to these steps; do not invent extra ones.
+  (2) click "Get API key" — accessibleName "Get API key".
+  (3) click "Create API key" — accessibleName "Create API key".
+  (4) a dialog opens asking for a project — click "Choose an imported project" (a
+      click step; if it isn't found by name, describe it: "click 'Choose an imported
+      project' to open the project list"). accessibleName "Search Google Cloud
+      projects" is a good fallback.
+  (5) PICK a project from the dropdown that appears — USER-SPECIFIC: set
+      "advanceOnAnyClick": true, "targetLabel": "", describe ("choose your project
+      from the list"). The user knows which one.
+  (6) an "info" WAIT step while the key generates: "autoAdvanceSeconds": 5,
+      "silent": true, instruction "Creating your key — one moment…". The key takes a
+      few seconds to appear; do NOT try to click Copy before this wait.
+  (7) click "Copy API key" — accessibleName "Copy API key" (NOT just "Copy"; the
+      short name matches nothing). This copies the key to the clipboard.
+  (8) final "info" step, "autoAdvanceSeconds": 4: "Your API key is copied — paste it
+      somewhere safe, like a note, and never share it." That completes the task.
+  Keep to these ~8 steps; do NOT invent extra ones and never click a "Close"/X.
 - VIEW / CHECK / SEE tasks END when the thing is on screen — they do NOT need a
   final click. If the task is to CHECK, SEE, VIEW, or FIND a value/status (your
   streak, your balance, a setting's current value, a score), the LAST step is an
