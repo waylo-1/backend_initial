@@ -78,7 +78,12 @@ const PLAN_PROMPT_VERSIONS = {
   // the planner must START from where the user already is — no "open a tab /
   // search for Gmail" steps when they're already on mail.google.com. Old cached
   // plans front-load redundant navigation; re-plan without it.
-  macos: 'v22',
+  // v23 (2026-08-10): web-app navigation rules — a word like "History"/"Settings"
+  // inside a site is the PAGE's item, never Chrome's menu bar; open a collapsed
+  // ☰/More menu BEFORE its items (YouTube History = click Guide ☰ then History);
+  // don't assume bookmarks. Old cached plans grounded on browser chrome / guessed
+  // bookmark shortcuts; re-plan.
+  macos: 'v23',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

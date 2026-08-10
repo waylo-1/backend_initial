@@ -660,6 +660,23 @@ Rules:
   For an app you don't have a known name for, still provide your best real
   aria-label/AXDescription (e.g. a share glyph is usually "Share"), and the app
   will fall back gracefully if it's not found.
+- WEB-APP NAVIGATION — a target inside a website is ALWAYS part of the page, NEVER
+  the browser's own chrome:
+    * A word like "History", "Settings", "Help", "View", "Bookmarks", "Downloads"
+      inside a web app (YouTube History, Gmail Settings) is the PAGE's own item —
+      NEVER Chrome's menu-bar menu of the same name. Describe it as an in-page
+      link/button (region "sidebar"/"spreadsheet", targetType "text"/"icon"), and
+      set "accessibleName" to its real aria-label.
+    * Many web apps HIDE their navigation behind a hamburger/"guide" (☰) or "More"
+      button that must be OPENED FIRST. If the item lives in a collapsible menu,
+      emit a step to click that ☰/More button BEFORE the item. YouTube: the Library/
+      History links live in the LEFT sidebar, which is often collapsed to just
+      icons — first click the ☰ "Guide"/menu button at the TOP-LEFT (accessibleName
+      "Guide"), THEN click "History" in the expanded sidebar (accessibleName
+      "History"). Do NOT assume a site is bookmarked or plan clicking a bookmark.
+    * If the task's site is not open yet (no matching "Current web page:" URL in the
+      snapshot), navigate first: a "type" step in the address bar with the URL is
+      more reliable than hunting a bookmark.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
