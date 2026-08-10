@@ -94,7 +94,11 @@ const PLAN_PROMPT_VERSIONS = {
   // POINTED icon (accessibleName Avatar/Account/…), NOT advanceOnAnyClick — v24
   // over-broadened and made it describe-only. Only the username entry INSIDE the
   // dropdown stays describe+any-click. Re-plan.
-  macos: 'v26',
+  // v27 (2026-08-10): XPRIZE curricula — Google AI Studio "get an API key" flow
+  // taught end-to-end (Get API key → Create API key → project user-choice → Copy);
+  // AI Studio accessible-name seeds; VIEW/CHECK tasks end on an auto-advancing
+  // info step (no click on a value you only read). Re-plan.
+  macos: 'v27',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

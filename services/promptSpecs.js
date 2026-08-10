@@ -658,6 +658,10 @@ Rules:
     * YouTube — like → "like this video"; search → "Search"; settings → "Settings".
     * Chrome (browser chrome) — new tab → "New Tab"; profile → "Account";
       extensions → "Extensions"; bookmark this tab → "Bookmark this tab".
+    * Google AI Studio (aistudio.google.com) — open the keys page → "Get API key";
+      make the key → "Create API key"; copy it → "Copy" (also try "Copy API key");
+      run a prompt → "Run"; start a prompt → "Create Prompt". The project chooser
+      inside the create-key dialog is a USER-CHOICE (see below).
   For an app you don't have a known name for, still provide your best real
   aria-label/AXDescription (e.g. a share glyph is usually "Share"), and the app
   will fall back gracefully if it's not found.
@@ -697,6 +701,26 @@ Rules:
       mislocates them in a fresh menu. For THOSE set "advanceOnAnyClick": true and
       "targetLabel": "", and describe generically ("click your username at the top
       of the menu"). The app describes it and advances when the user clicks.
+- GOOGLE AI STUDIO — "get your first Gemini API key" (know this flow exactly):
+  (1) a url-gated step to reach the site ("awaitURL":"aistudio.google.com",
+      instruction "Open Google AI Studio: click the address bar, type
+      aistudio.google.com and press Enter"). If already there, skip.
+  (2) click "Get API key" (targetType "icon"/"text", accessibleName "Get API key").
+  (3) click "Create API key" (accessibleName "Create API key").
+  (4) the create dialog asks WHICH Google Cloud project — this is user-specific, so
+      "advanceOnAnyClick": true, targetLabel "", describe it ("choose your project,
+      or pick 'Create API key in new project', then continue").
+  (5) once the key appears, click "Copy" (accessibleName "Copy", also "Copy API
+      key") — an "info"-style success is fine here.
+  (6) a final "info" step: "Your API key is copied. Paste it somewhere safe and
+      never share it." Keep the whole flow to these steps; do not invent extra ones.
+- VIEW / CHECK / SEE tasks END when the thing is on screen — they do NOT need a
+  final click. If the task is to CHECK, SEE, VIEW, or FIND a value/status (your
+  streak, your balance, a setting's current value, a score), the LAST step is an
+  "info" step that points it out and finishes: action "info", "autoAdvanceSeconds"
+  ~4, "targetLabel" set to the value's visible text if it's readable (so the app
+  can still highlight it), and an instruction like "Here is your streak — you're
+  all set." NEVER make the user CLICK a value they only need to look at.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).

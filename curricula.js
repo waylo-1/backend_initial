@@ -58,12 +58,15 @@ const CURRICULA = [
     id: 'ai-studio',
     displayName: 'Google AI Studio',
     aliases: ['aistudio', 'gemini api', 'api key', 'google ai studio'],
-    description: 'Get your own free Gemini API key.',
+    description: 'Get your own free Gemini API key — your first step as an AI builder.',
     lessons: [
+      // Flagship end-to-end lesson (the demo flow) — one intent, whole journey.
+      { title: 'Get your first Gemini API key', task: 'get a Gemini API key in Google AI Studio' },
       { title: 'Open AI Studio', task: 'go to aistudio.google.com in Chrome' },
       { title: 'Find the API keys page', task: 'open the Get API key page in Google AI Studio' },
       { title: 'Create your key', task: 'create a new API key in Google AI Studio' },
-      { title: 'Copy it somewhere safe', task: 'copy the API key and paste it into a new note in the Notes app' },
+      { title: 'Save it safely', task: 'copy the API key and paste it into a new note in the Notes app' },
+      { title: 'Try your first prompt', task: 'open a new prompt in Google AI Studio and run it' },
     ],
   },
   {
