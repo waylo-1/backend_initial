@@ -69,7 +69,12 @@ const PLAN_PROMPT_VERSIONS = {
   // share/flag/view-toggle) over the menu bar for common NATIVE-app actions —
   // one obvious click, AX-named, and it exercises icon detection. Old plans
   // routed "archive mail" / "gallery view" through the menu bar and confused.
-  macos: 'v20',
+  // v21 (2026-08-10): every ICON target now carries "accessibleName" — the exact
+  // aria-label / AXDescription a screen reader announces (Gmail paperclip =
+  // "Attach files", Docs comment = "Add comment"). The client resolves icons by
+  // a deep accessibility-tree search for that name — pixel-exact, free, first
+  // run, no vision. Old cached plans lack the field, so re-plan to populate it.
+  macos: 'v21',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

@@ -531,6 +531,7 @@ Format:
       "instruction": "Simple, warm English instruction for the user",
       "targetLabel": "the COMPLETE exact visible text on the element, e.g. Empty Bin",
       "elementDescription": "natural-language description of the element + location",
+      "accessibleName": "the screen-reader name / aria-label of the control, e.g. Attach files",
       "screenRegion": "ribbon",
       "targetType": "text",
       "controlKind": "button",
@@ -638,6 +639,27 @@ Rules:
     row of icons at the TOP of the open email or above the list (targetType
     "icon", elementDescription "trash bin delete icon", anchorText a nearby
     icon/label like "Archive"). Do not open any folder or the desktop Trash.
+- "accessibleName" is THE MOST IMPORTANT field for an ICON. It is the exact name
+  a screen reader (VoiceOver) announces for the control — its aria-label on the
+  web, or its AXDescription in a native app. Almost every real icon HAS one (it's
+  required for accessibility), and the app can find a control by this name in the
+  accessibility tree PIXEL-EXACT, FREE, and instantly — no vision needed. You know
+  these apps, so FILL IT IN for every icon target with the real accessible name,
+  not a guess. Leave it "" only for plain-text targets or when you truly don't
+  know it. Known accessible names (use these EXACTLY):
+    * Gmail — paperclip/attach → "Attach files"; insert emoji → "Insert emoji";
+      formatting → "Formatting options"; insert link → "Insert link"; delete
+      draft/trash → "Discard draft"; insert photo → "Insert photo"; the compose
+      button → "Compose" (it keeps this name even when collapsed to a pencil).
+    * Google Docs — comment → "Add comment"; insert image → "Insert image";
+      insert link → "Insert link (⌘K)"; bold → "Bold (⌘B)"; share → "Share".
+    * Google Sheets — insert chart → "Insert chart"; functions → "Functions".
+    * YouTube — like → "like this video"; search → "Search"; settings → "Settings".
+    * Chrome (browser chrome) — new tab → "New Tab"; profile → "Account";
+      extensions → "Extensions"; bookmark this tab → "Bookmark this tab".
+  For an app you don't have a known name for, still provide your best real
+  aria-label/AXDescription (e.g. a share glyph is usually "Share"), and the app
+  will fall back gracefully if it's not found.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).
@@ -660,6 +682,12 @@ function parseDesktopPlan(rawText) {
       targetLabel: typeof s.targetLabel === 'string' ? s.targetLabel : '',
       elementDescription:
         s.elementDescription || s.findDescription || s.instruction || '',
+      // Screen-reader name (aria-label / AXDescription) — lets the client resolve
+      // icons via a deep accessibility-tree search, pixel-exact and free.
+      accessibleName:
+        (typeof s.accessibleName === 'string' && s.accessibleName) ||
+        (typeof s.ariaLabel === 'string' && s.ariaLabel) ||
+        (typeof s.axName === 'string' && s.axName) || '',
       screenRegion: DESKTOP_REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
       targetType: s.targetType === 'icon' ? 'icon' : 'text',
       controlKind: typeof s.controlKind === 'string' ? s.controlKind : '',
