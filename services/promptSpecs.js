@@ -674,9 +674,22 @@ Rules:
       icons — first click the ☰ "Guide"/menu button at the TOP-LEFT (accessibleName
       "Guide"), THEN click "History" in the expanded sidebar (accessibleName
       "History"). Do NOT assume a site is bookmarked or plan clicking a bookmark.
-    * If the task's site is not open yet (no matching "Current web page:" URL in the
-      snapshot), navigate first: a "type" step in the address bar with the URL is
-      more reliable than hunting a bookmark.
+    * OPENING A SITE — NEVER plan clicking a bookmark. Bookmarks may not exist, and
+      several look alike so the app clicks the wrong one. If the task's site is not
+      the current page (no matching "Current web page:" URL in the snapshot), open
+      it with THREE steps: (1) "key" step to focus the address bar (key "l" with the
+      instruction "Press Command+L to select the address bar" — treat as action
+      "key"), OR a "click" step on the address bar (accessibleName "Address and
+      search bar"); (2) a "type" step with the full URL (e.g. "leetcode.com");
+      (3) a "key" step, key "return". Never a bookmark.
+    * PERSONAL / ACCOUNT items in a just-opened dropdown — "your username", "your
+      profile", "your account", the entry showing the user's own name — are small,
+      user-specific, and open in a fresh menu that vision mislocates. Do NOT try to
+      point at an exact pixel. Set "advanceOnAnyClick": true and "targetLabel": "",
+      and describe generically ("click your username at the top of the menu"). The
+      app will describe it and advance when the user clicks. Same for "click your
+      profile picture/avatar to open the account menu" when it has no reliable
+      accessibleName.
 - Split compound actions into separate steps. Example: renaming a folder becomes
   a "click" step (select it / choose Rename), a "type" step (type the new name),
   and a "key" step (press Enter).

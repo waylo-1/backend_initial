@@ -83,7 +83,11 @@ const PLAN_PROMPT_VERSIONS = {
   // ☰/More menu BEFORE its items (YouTube History = click Guide ☰ then History);
   // don't assume bookmarks. Old cached plans grounded on browser chrome / guessed
   // bookmark shortcuts; re-plan.
-  macos: 'v23',
+  // v24 (2026-08-10): open a site by typing the URL in the address bar, NEVER by
+  // clicking a bookmark (they may not exist / look alike → wrong one). Personal
+  // account-dropdown items ("your username/profile") are advanceOnAnyClick +
+  // described, not pointed at (vision mislocates a fresh dropdown). Re-plan.
+  macos: 'v24',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
