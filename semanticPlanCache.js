@@ -101,7 +101,13 @@ const PLAN_PROMPT_VERSIONS = {
   // v28 (2026-08-10): AI Studio flow corrected from a live run — after Create API
   // key: Choose an imported project → pick project (user-choice) → silent wait
   // step → Copy API key (full name; "Copy" matched nothing). Re-plan.
-  macos: 'v28',
+  // v29 (2026-08-10): AI Studio flow r2 from live run — project box is BELOW the
+  // "Choose an imported project" label (anchor below + describe); a SECOND "Create
+  // API key" confirm after picking the project; longer wait; copy is a describe
+  // step (copy icon appears late & unfindable, stale cache had "Close dialog").
+  // Also (client): accessibleName deep-AX now runs BEFORE OCR so a duplicate
+  // visible label can't win over the real control. Re-plan.
+  macos: 'v29',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

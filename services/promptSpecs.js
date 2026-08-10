@@ -702,26 +702,26 @@ Rules:
       "targetLabel": "", and describe generically ("click your username at the top
       of the menu"). The app describes it and advances when the user clicks.
 - GOOGLE AI STUDIO — "get your first Gemini API key" (this EXACT flow, verified live):
-  (1) url-gated step to reach the site ("awaitURL":"aistudio.google.com",
-      instruction "Open Google AI Studio: click the address bar, type
-      aistudio.google.com and press Enter"). If already there, skip.
+  (1) url-gated step: "awaitURL":"aistudio.google.com", instruction "Open Google AI
+      Studio: click the address bar, type aistudio.google.com and press Enter". Skip
+      if already there.
   (2) click "Get API key" — accessibleName "Get API key".
-  (3) click "Create API key" — accessibleName "Create API key".
-  (4) a dialog opens asking for a project — click "Choose an imported project" (a
-      click step; if it isn't found by name, describe it: "click 'Choose an imported
-      project' to open the project list"). accessibleName "Search Google Cloud
-      projects" is a good fallback.
-  (5) PICK a project from the dropdown that appears — USER-SPECIFIC: set
-      "advanceOnAnyClick": true, "targetLabel": "", describe ("choose your project
-      from the list"). The user knows which one.
-  (6) an "info" WAIT step while the key generates: "autoAdvanceSeconds": 5,
-      "silent": true, instruction "Creating your key — one moment…". The key takes a
-      few seconds to appear; do NOT try to click Copy before this wait.
-  (7) click "Copy API key" — accessibleName "Copy API key" (NOT just "Copy"; the
-      short name matches nothing). This copies the key to the clipboard.
-  (8) final "info" step, "autoAdvanceSeconds": 4: "Your API key is copied — paste it
-      somewhere safe, like a note, and never share it." That completes the task.
-  Keep to these ~8 steps; do NOT invent extra ones and never click a "Close"/X.
+  (3) click "Create API key" — accessibleName "Create API key". A dialog opens.
+  (4) open the project picker — the clickable box sits JUST BELOW the words "Choose
+      an imported project". Set "advanceOnAnyClick": true, "targetLabel": "",
+      "anchorText": "Choose an imported project", "anchorPosition": "below",
+      describe ("click the project box just below 'Choose an imported project'").
+  (5) pick your project from the dropdown — USER-SPECIFIC: "advanceOnAnyClick": true,
+      "targetLabel": "", describe ("choose your project from the list").
+  (6) click "Create API key" AGAIN to confirm — accessibleName "Create API key".
+  (7) "info" WAIT step while the key generates: "autoAdvanceSeconds": 7,
+      "silent": true, instruction "Creating your key — this takes a few seconds…".
+  (8) copy the key — the copy icon appears next to the key after a moment and is
+      small/hard to pinpoint, so DESCRIBE it: "advanceOnAnyClick": true,
+      "targetLabel": "", instruction "Click the copy icon just to the right of your
+      new key." NEVER target a "Close"/X button.
+  (9) final "info" step, "autoAdvanceSeconds": 4: "Your key is copied — paste it
+      somewhere safe like a note, and never share it." Done. Keep to these steps.
 - VIEW / CHECK / SEE tasks END when the thing is on screen — they do NOT need a
   final click. If the task is to CHECK, SEE, VIEW, or FIND a value/status (your
   streak, your balance, a setting's current value, a score), the LAST step is an
