@@ -74,7 +74,11 @@ const PLAN_PROMPT_VERSIONS = {
   // "Attach files", Docs comment = "Add comment"). The client resolves icons by
   // a deep accessibility-tree search for that name — pixel-exact, free, first
   // run, no vision. Old cached plans lack the field, so re-plan to populate it.
-  macos: 'v21',
+  // v22 (2026-08-10): the live snapshot now carries the current web-page URL, and
+  // the planner must START from where the user already is — no "open a tab /
+  // search for Gmail" steps when they're already on mail.google.com. Old cached
+  // plans front-load redundant navigation; re-plan without it.
+  macos: 'v22',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

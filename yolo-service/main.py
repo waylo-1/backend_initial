@@ -67,9 +67,15 @@ def load_models():
     print("[YOLO] Screen2AX loaded.")
 
     global match_model_name
-    requested = os.environ.get("MATCH_MODEL", "siglip").lower()
+    # DEFAULT OFF (2026-08-10): SigLIP/CLIP text→icon matching returns ~0 on real
+    # 18px UI glyphs (proven in production: conf 0.000) — a domain/scale mismatch
+    # no threshold fixes. It only cost RAM + startup. Web icons resolve via the
+    # accessibility name (deep AX search) and native icons via AX; unlabelled
+    # icons fall back to YOLO region-detect + "describe & learn from the click".
+    # Set MATCH_MODEL=siglip to re-enable for experiments.
+    requested = os.environ.get("MATCH_MODEL", "off").lower()
     if os.environ.get("DISABLE_CLIP_MATCH") == "1" or requested == "off":
-        print("[MATCH] disabled by env.")
+        print("[MATCH] disabled (default) — icons resolve via AX name + YOLO region + learn-from-click.")
     else:
         # Try SigLIP first (stronger text-image matching at similar cost),
         # fall back to CLIP, fall back to none — detection always works.
@@ -100,12 +106,17 @@ def load_models():
                 clip_processor = None
     load_custom_vocab()
     build_icon_vocab()
-    # Image-to-image icon namer: build the reference library on a BACKGROUND
-    # thread so startup is instant even the first time (embedding ~2000 icons is
-    # minutes on this CPU). It's cached to disk after the first run, and
-    # image-matching turns on automatically once it's ready.
-    import threading
-    threading.Thread(target=build_icon_reference, name="icon-reference", daemon=True).start()
+    # Image-to-image icon namer (the ~2000-icon reference library) only makes
+    # sense with a match model loaded. With matching off by default it was pure
+    # startup cost + RAM for no benefit (rendered-glyph references don't match
+    # real rendered icons — a domain gap), so skip building it unless matching is
+    # actually enabled. Learned REAL icons still work: they live in the client's
+    # local IconMemory (perceptual hash), not here.
+    if clip_model is not None:
+        import threading
+        threading.Thread(target=build_icon_reference, name="icon-reference", daemon=True).start()
+    else:
+        print("[MATCH] reference-icon library skipped (matching off) — leaner startup.")
     print("[YOLO] Service ready.")
 
 

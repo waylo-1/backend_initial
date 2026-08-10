@@ -127,7 +127,8 @@ Live screen snapshot (from the user's accessibility tree, captured just now):
 ${ctx}
 
 Ground the plan in this snapshot:
-- If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state, and set the plan's "app" field to that frontmost app's exact name.
+- START FROM WHERE THE USER ALREADY IS. If the app needed for the task is already frontmost, do NOT add a step to open it — start from the visible state, and set the plan's "app" field to that frontmost app's exact name.
+- WEB APPS — read the "Current web page:" URL. If the task targets a website and the user is ALREADY on it (the URL's domain matches the task — e.g. task mentions Gmail and the URL is mail.google.com, or Docs and docs.google.com), do NOT add ANY steps to open a new tab, click the address bar, type a URL, or search for the site. The user is already there — jump straight to the first real action of the task (e.g. click Compose). Add navigation steps ONLY when the URL shows they are NOT on the right site yet. Also skip a redundant sign-in/"open Gmail" step when the visible elements already show the app is open (Compose, Inbox, etc.).
 - When a visible element in the snapshot matches a step's target, copy its EXACT title into targetLabel (real labels beat guessed ones).
 - THE SNAPSHOT'S SPELLING WINS OVER YOURS. This Mac may be localized: if the Dock
   list shows "Bin", write "Bin" (and "Empty Bin"), never "Trash"/"Empty Trash".
