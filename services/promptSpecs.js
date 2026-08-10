@@ -532,6 +532,7 @@ Format:
       "targetLabel": "the COMPLETE exact visible text on the element, e.g. Empty Bin",
       "elementDescription": "natural-language description of the element + location",
       "accessibleName": "the screen-reader name / aria-label of the control, e.g. Attach files",
+      "awaitURL": "for a navigation step ONLY: the destination domain to wait for, e.g. leetcode.com (else omit or \"\")",
       "screenRegion": "ribbon",
       "targetType": "text",
       "controlKind": "button",
@@ -674,14 +675,17 @@ Rules:
       icons — first click the ☰ "Guide"/menu button at the TOP-LEFT (accessibleName
       "Guide"), THEN click "History" in the expanded sidebar (accessibleName
       "History"). Do NOT assume a site is bookmarked or plan clicking a bookmark.
-    * OPENING A SITE — NEVER plan clicking a bookmark. Bookmarks may not exist, and
-      several look alike so the app clicks the wrong one. If the task's site is not
-      the current page (no matching "Current web page:" URL in the snapshot), open
-      it with THREE steps: (1) "key" step to focus the address bar (key "l" with the
-      instruction "Press Command+L to select the address bar" — treat as action
-      "key"), OR a "click" step on the address bar (accessibleName "Address and
-      search bar"); (2) a "type" step with the full URL (e.g. "leetcode.com");
-      (3) a "key" step, key "return". Never a bookmark.
+    * OPENING A SITE — use ONE url-gated step, never a bookmark and never a
+      click→type→Return sequence. If the task's site is not the current page (no
+      matching "Current web page:" URL in the snapshot), emit a SINGLE step:
+      action "info", "awaitURL" set to the destination domain (e.g. "leetcode.com"),
+      "targetLabel" "", and an "instruction" telling the user how to get there in
+      plain words ("Open LeetCode: click the address bar at the top, type
+      leetcode.com and press Enter — or click it in your bookmarks."). The app does
+      NOT point at anything for this step — it watches the browser URL and continues
+      automatically the moment it reaches that domain, however the user navigates
+      (typing, bookmark, history). Do NOT emit separate address-bar / type / Return
+      steps, and do NOT plan clicking a bookmark.
     * PERSONAL / ACCOUNT items in a just-opened dropdown — "your username", "your
       profile", "your account", the entry showing the user's own name — are small,
       user-specific, and open in a fresh menu that vision mislocates. Do NOT try to
@@ -718,6 +722,11 @@ function parseDesktopPlan(rawText) {
         (typeof s.accessibleName === 'string' && s.accessibleName) ||
         (typeof s.ariaLabel === 'string' && s.ariaLabel) ||
         (typeof s.axName === 'string' && s.axName) || '',
+      // URL-gated navigation: advance when the browser reaches this domain.
+      awaitURL:
+        (typeof s.awaitURL === 'string' && s.awaitURL) ||
+        (typeof s.awaitUrl === 'string' && s.awaitUrl) ||
+        (typeof s.waitForURL === 'string' && s.waitForURL) || '',
       screenRegion: DESKTOP_REGIONS.includes(s.screenRegion) ? s.screenRegion : 'fullScreen',
       targetType: s.targetType === 'icon' ? 'icon' : 'text',
       controlKind: typeof s.controlKind === 'string' ? s.controlKind : '',

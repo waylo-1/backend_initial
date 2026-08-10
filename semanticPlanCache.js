@@ -87,7 +87,10 @@ const PLAN_PROMPT_VERSIONS = {
   // clicking a bookmark (they may not exist / look alike → wrong one). Personal
   // account-dropdown items ("your username/profile") are advanceOnAnyClick +
   // described, not pointed at (vision mislocates a fresh dropdown). Re-plan.
-  macos: 'v24',
+  // v25 (2026-08-10): opening a site is ONE url-gated step (action info + awaitURL
+  // domain) — the client watches the browser URL and auto-advances however the
+  // user navigates, no click→type→Return sequence, no bookmark. Re-plan.
+  macos: 'v25',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
