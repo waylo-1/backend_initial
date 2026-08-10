@@ -111,7 +111,10 @@ const PLAN_PROMPT_VERSIONS = {
   // like the 'Create key' confirm) instead of describe-only. Paired with a client
   // guard that ignores a stale close/cancel cached label for a non-close step
   // (kills the 'Close dialog' pollution). Re-plan.
-  macos: 'v30',
+  // v31 (2026-08-10): XPRIZE curriculum 2 — macOS System Settings navigation
+  // (sidebar category → right-pane control) with exact flagship paths (bigger
+  // text, Wi-Fi, Dark Mode, Bluetooth, wallpaper). Re-plan.
+  macos: 'v31',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

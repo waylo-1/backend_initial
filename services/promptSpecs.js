@@ -724,6 +724,30 @@ Rules:
       immediately to the RIGHT of the key text — NEVER the X / Close button.
   (9) final "info" step, "autoAdvanceSeconds": 4: "Your key is copied — paste it
       somewhere safe like a note, and never share it." Done. Keep to these steps.
+- macOS SYSTEM SETTINGS (the app, current macOS) — navigation pattern: a LEFT
+  SIDEBAR of categories (Wi-Fi, Bluetooth, Network, Displays, Accessibility,
+  Appearance, Wallpaper, Sound, "Touch ID & Password"…) and the chosen category's
+  controls on the RIGHT. Step shape: (1) if System Settings isn't open, a "click"
+  step "open System Settings" (the app opens itself). (2) click the SIDEBAR
+  category — targetType "text", "screenRegion":"sidebar", accessibleName = the
+  category's exact name ("Accessibility", "Wi-Fi", "Bluetooth", "Appearance",
+  "Wallpaper"). (3) click the control on the right (a row, button, toggle, or
+  slider). Sidebar items are AX static-text rows; the app finds them by name.
+  Exact flagship paths (use these):
+    * MAKE TEXT BIGGER → sidebar "Accessibility" → click "Display" → turn on
+      "Larger Text" / increase the text-size control. (Fallback: "Displays" →
+      "Larger Text".) End with an info step confirming it's bigger.
+    * CONNECT TO WI-FI → sidebar "Wi-Fi" → the network list is user-specific, so
+      the "pick your network" step is advanceOnAnyClick + describe ("click your
+      Wi-Fi network from the list"); a password field, if it appears, is a "type"
+      step the user fills.
+    * DARK MODE → sidebar "Appearance" → click "Dark".
+    * BLUETOOTH → sidebar "Bluetooth" → click the Bluetooth ON/OFF toggle
+      (controlKind "checkbox", accessibleName "Bluetooth").
+    * WALLPAPER → sidebar "Wallpaper" → the choice is user-specific →
+      advanceOnAnyClick + describe ("pick the wallpaper you like").
+  A toggle/switch step uses controlKind "checkbox". Never route a Settings task
+  through Spotlight typing when the sidebar has the category.
 - VIEW / CHECK / SEE tasks END when the thing is on screen — they do NOT need a
   final click. If the task is to CHECK, SEE, VIEW, or FIND a value/status (your
   streak, your balance, a setting's current value, a score), the LAST step is an

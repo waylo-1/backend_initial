@@ -70,6 +70,19 @@ const CURRICULA = [
     ],
   },
   {
+    id: 'mac-settings',
+    displayName: 'Mac System Settings',
+    aliases: ['settings', 'system settings', 'mac settings', 'system preferences', 'set up my mac'],
+    description: 'Personalise your Mac so it works the way you need — bigger text, Wi-Fi, dark mode.',
+    lessons: [
+      { title: 'Make the text bigger', task: 'make the text on my Mac bigger in System Settings' },
+      { title: 'Connect to Wi-Fi', task: 'connect to a Wi-Fi network in System Settings' },
+      { title: 'Turn on Dark Mode', task: 'turn on Dark Mode in System Settings' },
+      { title: 'Turn on Bluetooth', task: 'turn on Bluetooth in System Settings' },
+      { title: 'Change your wallpaper', task: 'change the desktop wallpaper in System Settings' },
+    ],
+  },
+  {
     id: 'pages',
     displayName: 'Pages',
     aliases: ['apple pages'],
