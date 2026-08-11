@@ -185,18 +185,23 @@ async function recoverDesktopStep({ screenshot, task, instruction, targetLabel, 
 
 // ── POST /nova-vision (object-detection grounding) ──────────────────────────
 
-async function detectObject({ screenshot, targetLabel, stepInstruction, ocrContext }) {
+async function detectObject({ screenshot, targetLabel, stepInstruction, ocrContext, highAccuracy }) {
   const prompt = specs.getDetectionPrompt(targetLabel, stepInstruction, ocrContext);
 
   const text = await raw.askObjectDetection({
     prompt,
     imageBase64: screenshot,
-    maxTokens: 1200,
+    maxTokens: highAccuracy ? 2000 : 1200,
     temperature: 0.0,
     json: true,
-    // Grounding is perception, not reasoning — thinking tokens are pure cost
-    // on this HIGH-FREQUENCY call (teach-mode vision fallback).
-    thinkingBudget: 0,
+    // Normally grounding is perception, not reasoning — thinking tokens are pure
+    // cost on this HIGH-FREQUENCY call. But JUDGE / MAX-ACCURACY mode gives Gemini
+    // a thinking budget so it reasons about EXACTLY which element and where (it
+    // mislocates far less), and lets an env override point at the strongest vision
+    // model. More tokens, near-zero misses — used only for the submission/demo.
+    thinkingBudget: highAccuracy ? 1024 : 0,
+    modelId: highAccuracy && process.env.GEMINI_VISION_MODEL_HIGH
+      ? process.env.GEMINI_VISION_MODEL_HIGH : undefined,
   });
 
   if (process.env.NOVA_DEBUG) console.log('[detectObject] RAW:', text);

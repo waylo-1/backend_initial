@@ -408,6 +408,9 @@ app.post('/nova-vision', async (req, res) => {
       // Words the client's local OCR read — free grounding context (capped).
       ocrContext: typeof req.body.ocr_context === 'string'
         ? req.body.ocr_context.slice(0, 1200) : '',
+      // JUDGE / MAX-ACCURACY: the client asks Gemini to REASON about the exact
+      // element (thinking budget) — more accurate grounding, more tokens.
+      highAccuracy: req.body.high_accuracy === true,
     });
     return res.json(result);
   } catch (error) {
