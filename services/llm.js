@@ -208,6 +208,29 @@ async function detectObject({ screenshot, targetLabel, stepInstruction, ocrConte
   return specs.parseDetectionResponse(text, targetLabel);
 }
 
+// ── POST /pick-element (Judge-Mode disambiguation, Set-of-Mark) ─────────────
+// The client stamped NUMBERED red badges on the real candidate locations and
+// asks Gemini to CHOOSE the right one. This is the reliable way to use vision:
+// a multiple-choice among real elements (each badge sits on an actual control),
+// not a raw-coordinate hunt — so the final dot is always on a real element.
+async function pickElement({ screenshot, target, stepInstruction, count }) {
+  const n = Math.max(1, Math.min(40, parseInt(count, 10) || 0));
+  const prompt =
+`The screenshot has ${n} numbered red badges, each sitting on a UI element. The user wants to: "${stepInstruction || target}".
+Which badge number is ON the element they need — "${target}"?
+Reply with ONLY the number (1 to ${n}). If none of the badges is that element, reply 0.`;
+  const text = await raw.askObjectDetection({
+    prompt,
+    imageBase64: screenshot,
+    maxTokens: 30,
+    temperature: 0.0,
+    thinkingBudget: 256, // a little reasoning to pick the right one
+  });
+  const m = String(text).match(/-?\d+/);
+  const id = m ? parseInt(m[0], 10) : 0;
+  return { id: id >= 1 && id <= n ? id : 0 };
+}
+
 // ── POST /qa, POST /ask-screen ──────────────────────────────────────────────
 
 async function answerConcept({ question, appName }) {
@@ -241,6 +264,7 @@ module.exports = {
   isQuotaOrThrottleError,
   generateEnrichedSteps,
   generateDesktopSteps,
+  pickElement,
   recoverDesktopStep,
   detectObject,
   answerConcept,

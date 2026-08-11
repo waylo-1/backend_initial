@@ -17,7 +17,7 @@ const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const { detectLanguage } = require('./langdetect');
-const { generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen, isQuotaOrThrottleError } = require('./services/llm');
+const { generateDesktopSteps, generateEnrichedSteps, recoverDesktopStep, detectObject, answerConcept, answerWithScreen, isQuotaOrThrottleError, pickElement } = require('./services/llm');
 const planCache = require('./planCache');
 const db = require('./db');
 const semanticPlanCache = require('./semanticPlanCache');
@@ -395,6 +395,23 @@ app.post('/ask-screen', async (req, res) => {
  * Body: { image_base64, target_label, step_instruction }
  * Returns: { found, bbox: [xMin,yMin,xMax,yMax] (0-1000), label } or { found: false }
  */
+// POST /pick-element — Judge-Mode disambiguation: Gemini picks the right badge
+// among numbered candidates the client stamped on the screenshot.
+app.post('/pick-element', async (req, res) => {
+  try {
+    const { image_base64, target, step_instruction, count } = req.body || {};
+    if (!image_base64 || !target || !count) return res.status(400).json({ id: 0 });
+    const result = await pickElement({
+      screenshot: image_base64, target,
+      stepInstruction: step_instruction || '', count,
+    });
+    return res.json(result);
+  } catch (error) {
+    console.error('Error in /pick-element:', error.message);
+    return res.status(200).json({ id: 0 });
+  }
+});
+
 app.post('/nova-vision', async (req, res) => {
   try {
     const { image_base64, target_label, step_instruction } = req.body || {};
