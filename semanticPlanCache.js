@@ -117,7 +117,11 @@ const PLAN_PROMPT_VERSIONS = {
   // v32 (2026-08-10): XPRIZE curriculum 3 — Google Docs "write a resume" flow +
   // expanded Docs toolbar accessible-name seeds (bold/italic/lists/link/styles/
   // font-size, File>Download>PDF). Learn-the-app follow-ups use sessionContext.
-  macos: 'v32',
+  // v33 (2026-08-15): AI Studio flow polish — step 1 speech shortened to "Let's
+  // open Google AI Studio." (URL auto-advance), and the COPY-key step no longer
+  // uses bare accessibleName "Copy" (which hit "Copy project name to clipboard");
+  // it points at the copy control on the generated key's row via vision. Re-plan.
+  macos: 'v33',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
