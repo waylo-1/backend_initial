@@ -104,6 +104,15 @@ const FREE_LIMIT = parseInt(process.env.FREE_TASK_LIMIT || '5', 10);  // free ta
 const PAID_LIMIT = parseInt(process.env.PAID_TASK_LIMIT || '25', 10); // paid tier
 const limitForPlan = (plan) => (plan === 'paid' ? PAID_LIMIT : FREE_LIMIT);
 
+// Developer accounts — unlimited tasks + (client-side) the developer tools.
+// Comma-separated in DEVELOPER_EMAILS; defaults to the founder's email. Keep in
+// sync with WayloConfig.developerEmails in the macOS app.
+const DEVELOPER_EMAILS = new Set(
+  (process.env.DEVELOPER_EMAILS || 'yashrock4428@gmail.com')
+    .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+);
+const isDeveloperEmail = (email) => DEVELOPER_EMAILS.has(normEmail(email));
+
 /** Whether this user may run another task, plus the numbers for the paywall UI. */
 async function usageStatus(email) {
   await ensureTables();
@@ -111,6 +120,11 @@ async function usageStatus(email) {
   if (!looksLikeEmail(e)) {
     // No signed-in email → don't hard-block (keeps anonymous/dev usable).
     return { plan: 'anonymous', used: 0, limit: FREE_LIMIT, allowed: true };
+  }
+  if (isDeveloperEmail(e)) {
+    // Developer account: unlimited tasks, never paywalled.
+    const used = await taskCount(e);
+    return { plan: 'developer', used, limit: 999999, allowed: true, remaining: 999999 };
   }
   const user = await getUser(e);
   const plan = user?.plan || 'free';
@@ -152,5 +166,5 @@ async function getStats() {
 
 module.exports = {
   ensureTables, registerUser, trackUsage, taskCount, getUser, setPlan, getStats,
-  usageStatus, limitForPlan, FREE_LIMIT, PAID_LIMIT,
+  usageStatus, limitForPlan, isDeveloperEmail, FREE_LIMIT, PAID_LIMIT,
 };
