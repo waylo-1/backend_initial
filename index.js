@@ -524,6 +524,25 @@ app.post('/usage', async (req, res) => {
   }
 });
 
+// GET /config — REMOTE CONFIG. The app fetches this at launch to control tunable
+// behaviour (Judge Mode, thresholds, a broadcast message, update prompts) WITHOUT
+// a re-download. Edit app-config.json and it takes effect on the next fetch — no
+// restart, because it's read per request.
+const fs = require('fs');
+app.get('/config', (req, res) => {
+  let cfg = {};
+  try { cfg = JSON.parse(fs.readFileSync(require('path').join(__dirname, 'app-config.json'), 'utf8')); }
+  catch (e) { /* fall back to defaults below */ }
+  res.json({
+    maxAccuracy: typeof cfg.maxAccuracy === 'boolean' ? cfg.maxAccuracy : true,
+    novaMinConfidence: typeof cfg.novaMinConfidence === 'number' ? cfg.novaMinConfidence : 0.55,
+    message: typeof cfg.message === 'string' ? cfg.message : '',
+    messageLevel: typeof cfg.messageLevel === 'string' ? cfg.messageLevel : 'info',
+    latestVersion: typeof cfg.latestVersion === 'string' ? cfg.latestVersion : '1.0',
+    updateURL: typeof cfg.updateURL === 'string' ? cfg.updateURL : '',
+  });
+});
+
 // GET /me?email= — the app/website reads the user's plan + remaining free tasks.
 app.get('/me', async (req, res) => {
   try { return res.json(await users.usageStatus(req.query.email || '')); }

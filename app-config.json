@@ -1,0 +1,9 @@
+{
+  "_comment": "Remote config the app fetches at launch. Edit this file (commit + git pull on EC2) to change app behaviour WITHOUT a re-download. Re-read on every request, so no restart needed.",
+  "maxAccuracy": true,
+  "novaMinConfidence": 0.55,
+  "message": "",
+  "messageLevel": "info",
+  "latestVersion": "1.0",
+  "updateURL": ""
+}
