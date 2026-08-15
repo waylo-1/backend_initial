@@ -121,7 +121,11 @@ const PLAN_PROMPT_VERSIONS = {
   // open Google AI Studio." (URL auto-advance), and the COPY-key step no longer
   // uses bare accessibleName "Copy" (which hit "Copy project name to clipboard");
   // it points at the copy control on the generated key's row via vision. Re-plan.
-  macos: 'v33',
+  // v34 (2026-08-15): AI Studio copy step targets the "Copy key" BUTTON by its
+  // visible text (targetType text, label "Copy key") instead of hunting a copy
+  // icon by anchor — the anchor matched the wrong "API key" text and the dot
+  // landed top-right. Text match is reliable (OCR score 1.0). Re-plan.
+  macos: 'v34',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
