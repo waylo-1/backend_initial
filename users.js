@@ -100,8 +100,8 @@ async function setPlan(email, plan) {
 }
 
 // ── Free-tier limit ─────────────────────────────────────────────────────────
-const FREE_LIMIT = parseInt(process.env.FREE_TASK_LIMIT || '5', 10);   // free tasks
-const PAID_LIMIT = parseInt(process.env.PAID_TASK_LIMIT || '100', 10); // ₹100 tier
+const FREE_LIMIT = parseInt(process.env.FREE_TASK_LIMIT || '5', 10);  // free tasks
+const PAID_LIMIT = parseInt(process.env.PAID_TASK_LIMIT || '50', 10); // paid tier
 const limitForPlan = (plan) => (plan === 'paid' ? PAID_LIMIT : FREE_LIMIT);
 
 /** Whether this user may run another task, plus the numbers for the paywall UI. */
