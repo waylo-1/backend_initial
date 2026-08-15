@@ -99,6 +99,26 @@ async function setPlan(email, plan) {
   await query(`UPDATE users SET plan = $2 WHERE email = $1`, [normEmail(email), plan]);
 }
 
+// ── Free-tier limit ─────────────────────────────────────────────────────────
+const FREE_LIMIT = parseInt(process.env.FREE_TASK_LIMIT || '5', 10);   // free tasks
+const PAID_LIMIT = parseInt(process.env.PAID_TASK_LIMIT || '100', 10); // ₹100 tier
+const limitForPlan = (plan) => (plan === 'paid' ? PAID_LIMIT : FREE_LIMIT);
+
+/** Whether this user may run another task, plus the numbers for the paywall UI. */
+async function usageStatus(email) {
+  await ensureTables();
+  const e = normEmail(email);
+  if (!looksLikeEmail(e)) {
+    // No signed-in email → don't hard-block (keeps anonymous/dev usable).
+    return { plan: 'anonymous', used: 0, limit: FREE_LIMIT, allowed: true };
+  }
+  const user = await getUser(e);
+  const plan = user?.plan || 'free';
+  const used = await taskCount(e);
+  const limit = limitForPlan(plan);
+  return { plan, used, limit, allowed: used < limit, remaining: Math.max(0, limit - used) };
+}
+
 /** Aggregate metrics for the analytics dashboard (product + funnel evidence). */
 async function getStats() {
   await ensureTables();
@@ -129,4 +149,5 @@ async function getStats() {
 
 module.exports = {
   ensureTables, registerUser, trackUsage, taskCount, getUser, setPlan, getStats,
+  usageStatus, limitForPlan, FREE_LIMIT, PAID_LIMIT,
 };

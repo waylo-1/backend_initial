@@ -107,6 +107,21 @@ app.post('/plan', planLimiter, async (req, res) => {
       });
     }
 
+    // FREE-TIER PAYWALL: block once the signed-in user is out of free tasks,
+    // BEFORE spending a Gemini call. The app surfaces `details` to the user.
+    if (req.body.userEmail) {
+      const status = await users.usageStatus(req.body.userEmail);
+      if (!status.allowed) {
+        const upgrade = process.env.UPGRADE_URL || 'your Waylo account page';
+        return res.status(402).json({
+          success: false, code: 'limit_reached',
+          plan: status.plan, used: status.used, limit: status.limit,
+          error: 'Free tasks used up',
+          details: `You've used all ${status.limit} free tasks. Upgrade to the ₹100 / 100-task plan at ${upgrade} to keep going.`,
+        });
+      }
+    }
+
     // Usage tracking (business evidence + the free-tier counter). The app sends
     // the signed-in user's email; fire-and-forget so it never slows a plan.
     if (req.body.userEmail) {
@@ -506,6 +521,30 @@ app.post('/usage', async (req, res) => {
     return res.json({ ok: true });
   } catch (e) {
     return res.status(500).json({ ok: false });
+  }
+});
+
+// GET /me?email= — the app/website reads the user's plan + remaining free tasks.
+app.get('/me', async (req, res) => {
+  try { return res.json(await users.usageStatus(req.query.email || '')); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
+// POST /upgrade — the ₹100 / 100-task plan. The customer paid you by UPI and
+// submits their email + UPI reference (reconcile against your bank statement).
+// Body: { email, ref?, name? }
+app.post('/upgrade', async (req, res) => {
+  try {
+    const email = await users.registerUser(req.body?.email, req.body?.name, 'upgrade');
+    if (!email) return res.status(400).json({ ok: false, error: 'A valid email is required' });
+    await users.setPlan(email, 'paid');
+    // Keep the UPI reference for reconciliation / audit trail.
+    await users.trackUsage(email, 'UPI ' + String(req.body?.ref || 'n/a').slice(0, 60), 'payment', 'web').catch(() => {});
+    const status = await users.usageStatus(email);
+    return res.json({ ok: true, email, plan: 'paid', remaining: status.remaining });
+  } catch (e) {
+    console.error('[upgrade] failed:', e.message);
+    return res.status(500).json({ ok: false, error: 'upgrade failed' });
   }
 });
 
