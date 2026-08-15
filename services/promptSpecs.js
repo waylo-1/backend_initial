@@ -762,6 +762,31 @@ Rules:
       advanceOnAnyClick + describe ("pick the wallpaper you like").
   A toggle/switch step uses controlKind "checkbox". Never route a Settings task
   through Spotlight typing when the sidebar has the category.
+- macOS PHOTO BOOTH — "take / click a photo": (1) if Photo Booth isn't open, a
+  "click" step "open Photo Booth" (the app opens itself). (2) the SHUTTER is the
+  big round RED CAMERA button centered at the BOTTOM of the window: targetType
+  "icon", "screenRegion":"bottom", accessibleName "Take a picture" (also fine:
+  "Take Photo"), elementDescription "the red camera shutter button at the bottom
+  center", instruction "Click the red camera button to take your photo." (3) final
+  "info" step, autoAdvanceSeconds ~4: "Your photo's taken — it's saved in your
+  Photo Booth library." Keep it to these 2–3 steps.
+- WHATSAPP on macOS (desktop app) — "send a photo to someone": (1) if WhatsApp
+  isn't open, a "click" step "open WhatsApp". (2) pick the person — USER-SPECIFIC:
+  "advanceOnAnyClick": true, "targetLabel": "", describe ("click the person you
+  want to send it to"). (3) click the ATTACH control — the "+" / paperclip at the
+  LEFT of the message box: targetType "icon", "screenRegion":"bottom", accessibleName
+  "Attach" (also "plus"), elementDescription "the + attach button to the left of the
+  message field". (4) choose "Photos & Videos" from the little menu (targetType
+  "text", accessibleName "Photos & Videos"). (5) pick the photo — USER-SPECIFIC:
+  "advanceOnAnyClick": true, describe ("choose the photo you want to send"). (6)
+  click the green SEND (paper-plane) button — targetType "icon", accessibleName
+  "Send", elementDescription "the green send button (paper plane) bottom-right".
+- FOLLOW-UP MEMORY (important): when the sessionContext says the user JUST took a
+  photo (e.g. in Photo Booth), a follow-up like "send this photo to someone on
+  WhatsApp" refers to THAT photo. Make the memory explicit: the FIRST instruction
+  should reference it ("Let's send the photo you just took in Photo Booth."), and
+  at the pick-the-photo step say "choose the photo you just took." Never treat such
+  a follow-up as unrelated — it continues the previous task.
 - VIEW / CHECK / SEE tasks END when the thing is on screen — they do NOT need a
   final click. If the task is to CHECK, SEE, VIEW, or FIND a value/status (your
   streak, your balance, a setting's current value, a score), the LAST step is an

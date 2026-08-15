@@ -130,7 +130,10 @@ const PLAN_PROMPT_VERSIONS = {
   // recovery relabelled it. Target "Create key" as text (OCR 1.0). Copy step
   // label ("Copy key") kept identical so the user's ⌃⌥⌘N-taught location is
   // reused across runs. Re-plan.
-  macos: 'v35',
+  // v36 (2026-08-15): XPRIZE demo 2 — Photo Booth "take a photo" flow + WhatsApp
+  // "send a photo" flow, plus the FOLLOW-UP MEMORY rule so "send this photo on
+  // WhatsApp" after a Photo Booth shot references the just-taken photo. Re-plan.
+  macos: 'v36',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
