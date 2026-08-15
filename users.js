@@ -122,7 +122,7 @@ async function usageStatus(email) {
 /** Aggregate metrics for the analytics dashboard (product + funnel evidence). */
 async function getStats() {
   await ensureTables();
-  const [users, paid, tasks, tasks7, active7, topTasks, daily] = await Promise.all([
+  const [users, paid, tasks, tasks7, active7, topTasks, daily, recent] = await Promise.all([
     query(`SELECT COUNT(*)::int AS n FROM users`),
     query(`SELECT COUNT(*)::int AS n FROM users WHERE plan <> 'free'`),
     query(`SELECT COUNT(*)::int AS n FROM usage_events WHERE event = 'task'`),
@@ -132,6 +132,8 @@ async function getStats() {
     query(`SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS day, COUNT(*)::int AS n
            FROM usage_events WHERE event='task' AND created_at > now() - interval '14 days'
            GROUP BY day ORDER BY day`),
+    query(`SELECT email, plan, source, to_char(created_at, 'YYYY-MM-DD HH24:MI') AS joined
+           FROM users ORDER BY created_at DESC LIMIT 10`),
   ]);
   const registered = users.rows[0].n;
   const paidUsers = paid.rows[0].n;
@@ -144,6 +146,7 @@ async function getStats() {
     activeUsers7d: active7.rows[0].n,
     topTasks: topTasks.rows,
     daily: daily.rows,
+    recentUsers: recent.rows,   // last 10 signups (email, plan, source, joined)
   };
 }
 

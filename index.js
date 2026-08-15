@@ -576,6 +576,8 @@ function renderStatsHTML(s) {
   const bars = s.daily.map((d) =>
     `<div class="bar"><div class="fill" style="height:${Math.round((d.n / maxDaily) * 120)}px" title="${d.n}"></div><span>${esc(d.day.slice(5))}</span></div>`).join('');
   const rows = s.topTasks.map((t) => `<tr><td>${esc(t.task)}</td><td class="num">${t.n}</td></tr>`).join('') || '<tr><td colspan="2">No tasks yet</td></tr>';
+  const signupRows = (s.recentUsers || []).map((u) =>
+    `<tr><td>${esc(u.email)}</td><td>${esc(u.plan)}</td><td>${esc(u.source || '')}</td><td class="num">${esc(u.joined)}</td></tr>`).join('') || '<tr><td colspan="4">No signups yet</td></tr>';
   const card = (label, value, sub = '') =>
     `<div class="card"><div class="v">${esc(value)}</div><div class="l">${esc(label)}</div>${sub ? `<div class="s">${esc(sub)}</div>` : ''}</div>`;
   return `<!doctype html><html><head><meta charset="utf-8"><title>Waylo · live metrics</title>
@@ -608,6 +610,7 @@ function renderStatsHTML(s) {
     ${card('Active users (7d)', s.activeUsers7d)}
   </div>
   <div class="panel"><h2>Tasks per day (14 days)</h2><div class="chart">${bars || '<span class="sub">No data yet</span>'}</div></div>
+  <div class="panel"><h2>Recent signups</h2><table><thead><tr style="color:var(--faint)"><td>Email</td><td>Plan</td><td>Source</td><td class="num">Joined</td></tr></thead><tbody>${signupRows}</tbody></table></div>
   <div class="panel"><h2>Top tasks</h2><table><tbody>${rows}</tbody></table></div>
 </body></html>`;
 }
