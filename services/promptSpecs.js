@@ -720,7 +720,11 @@ Rules:
       describe ("click the project box just below 'Choose an imported project'").
   (5) pick your project from the dropdown — USER-SPECIFIC: "advanceOnAnyClick": true,
       "targetLabel": "", describe ("choose your project from the list").
-  (6) click "Create API key" AGAIN to confirm — accessibleName "Create API key".
+  (6) confirm — the button in the "Create a new key" dialog is labelled exactly
+      "Create key" (NOT "Create API key"). Target that TEXT: targetType "text",
+      "targetLabel": "Create key", "accessibleName": "Create key", region "dialog",
+      instruction "Click Create key to confirm." (OCR matches "Create key" at 1.0;
+      "Create API key" does NOT match this button and wastes a slow Gemini miss.)
   (7) "info" WAIT step while the key generates: "autoAdvanceSeconds": 7,
       "silent": true, instruction "Creating your key — this takes a few seconds…".
   (8) copy the new key — once the key generates, the dialog shows a button whose

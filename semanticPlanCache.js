@@ -125,7 +125,12 @@ const PLAN_PROMPT_VERSIONS = {
   // visible text (targetType text, label "Copy key") instead of hunting a copy
   // icon by anchor — the anchor matched the wrong "API key" text and the dot
   // landed top-right. Text match is reliable (OCR score 1.0). Re-plan.
-  macos: 'v34',
+  // v35 (2026-08-15): AI Studio confirm button is "Create key" not "Create API
+  // key" — the old label OCR-missed (0.30) and burned a slow Gemini miss before
+  // recovery relabelled it. Target "Create key" as text (OCR 1.0). Copy step
+  // label ("Copy key") kept identical so the user's ⌃⌥⌘N-taught location is
+  // reused across runs. Re-plan.
+  macos: 'v35',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
