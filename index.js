@@ -24,6 +24,7 @@ const semanticPlanCache = require('./semanticPlanCache');
 const stepLabelCache = require('./stepLabelCache');
 const pickMemory = require('./pickMemory');
 const users = require('./users');
+const googleTTS = require('./services/googleTTS');
 const visionRouter = require('./routes/vision');
 const visionFallbackRouter = require('./routes/vision-fallback');
 const failureRouter = require('./routes/failure');
@@ -540,7 +541,25 @@ app.get('/config', (req, res) => {
     messageLevel: typeof cfg.messageLevel === 'string' ? cfg.messageLevel : 'info',
     latestVersion: typeof cfg.latestVersion === 'string' ? cfg.latestVersion : '1.0',
     updateURL: typeof cfg.updateURL === 'string' ? cfg.updateURL : '',
+    // Which voice the app narrates with: "google" (Cloud TTS via /tts) or
+    // "system" (on-device). Auto-downgrades to system if TTS isn't configured.
+    voiceEngine: (cfg.voiceEngine === 'google' && googleTTS.available()) ? 'google' : 'system',
   });
+});
+
+// POST /tts { text, language } → { audio: <base64 mp3> }. Natural Google Cloud
+// voice for the spoken step instructions. Returns 503 when TTS isn't configured
+// so the app falls back to its on-device voice.
+app.post('/tts', async (req, res) => {
+  try {
+    const { text, language } = req.body || {};
+    if (!text || !String(text).trim()) return res.status(400).json({ error: 'text required' });
+    const audio = await googleTTS.synthesize(text, language || 'en-US');
+    if (!audio) return res.status(503).json({ error: 'tts unavailable' });
+    return res.json({ audio, format: 'mp3' });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
 });
 
 // GET /me?email= — the app/website reads the user's plan + remaining free tasks.
