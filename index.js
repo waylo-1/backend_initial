@@ -34,6 +34,7 @@ const actRouter = require('./routes/act');
 const actVisionRouter = require('./routes/act-vision');
 const actComputerRouter = require('./routes/act-computer');
 const iconMemoryRouter = require('./routes/icon-memory');
+const authRouter = require('./routes/auth'); // Android accounts: /auth/google, /entitlement*, /feedback (+ its own /upgrade, /admin/stats — shadowed by ours, mounted after)
 const { CURRICULA, findCurriculum } = require('./curricula');
 
 const app = express();
@@ -607,6 +608,12 @@ app.get('/admin/stats', async (req, res) => {
     return res.status(500).send('error: ' + e.message);
   }
 });
+
+// Android accounts / entitlement / feedback router. Mounted AFTER our own
+// /upgrade and /admin/stats so THOSE (ours) win the duplicate paths — the
+// router only adds its unique routes (/auth/google, /entitlement,
+// /entitlement/consume, /feedback). It's committed here so redeploys keep it.
+app.use('/', authRouter);
 
 function renderStatsHTML(s) {
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
