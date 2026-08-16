@@ -109,9 +109,15 @@ app.post('/plan', planLimiter, async (req, res) => {
       });
     }
 
+    // XPRIZE REVIEWER ("judge") BUILD: a build key sent by the reviewer build
+    // grants unlimited tasks (paywall bypassed) without any developer tools.
+    // Website builds never send it, so the freemium limit still applies to them.
+    const JUDGE_BUILD_KEY = process.env.JUDGE_BUILD_KEY || 'waylo-xprize-reviewer-2026';
+    const isJudgeBuild = req.get('x-waylo-build-key') === JUDGE_BUILD_KEY;
+
     // FREE-TIER PAYWALL: block once the signed-in user is out of free tasks,
     // BEFORE spending a Gemini call. The app surfaces `details` to the user.
-    if (req.body.userEmail) {
+    if (req.body.userEmail && !isJudgeBuild) {
       const status = await users.usageStatus(req.body.userEmail);
       if (!status.allowed) {
         const upgrade = process.env.UPGRADE_URL || 'your Waylo account page';
