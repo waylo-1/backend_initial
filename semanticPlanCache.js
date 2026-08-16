@@ -145,7 +145,9 @@ const PLAN_PROMPT_VERSIONS = {
   // the app so "Control Center" resolves the "Control Centre" item precisely. Re-plan.
   // v41 (2026-08-16): Apple Pages flow — new document (New Document → Create) then
   // insert a table (Table toolbar button → first table thumbnail). Re-plan.
-  macos: 'v41',
+  // v42 (2026-08-16): Pages flow made strict — New Document REQUIRED (was dropped),
+  // and Table constrained to controlKind button (was matching an AXColumn). Re-plan.
+  macos: 'v42',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.

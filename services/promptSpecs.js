@@ -785,22 +785,26 @@ Rules:
       "screenRegion":"fullScreen", elementDescription "the 'Everyone' option in the
       expanded AirDrop panel", instruction "Choose Everyone so anyone can share with
       you." Resolves by its visible "Everyone" text. Keep to these 3 steps.
-- APPLE PAGES — "create a new document and insert a table" (native app, AX names):
-  (1) if Pages isn't open, a "click" step "open Pages" (the app opens itself).
+- APPLE PAGES — "create a new document and insert a table". Native app. Emit
+  EXACTLY these steps in THIS order — do NOT merge, reorder, or drop any:
+  (1) open Pages (the app opens itself — the leading open step).
   (2) click "New Document" — targetType "text", "targetLabel":"New Document",
-      accessibleName "New Document" (button at the bottom-left of the Pages open
-      panel). Opens the template chooser.
+      accessibleName "New Document", controlKind "button", "screenRegion":"dialog".
+      When Pages opens it shows an OPEN PANEL; "New Document" is the button at its
+      BOTTOM-LEFT. THIS STEP IS REQUIRED — the template chooser does NOT appear
+      until it is clicked, so NEVER skip it or start at "Create".
   (3) click "Create" — targetType "text", "targetLabel":"Create", accessibleName
-      "Create" (the blue button, bottom-right of the template chooser; the Blank
-      template is selected by default). A new blank document opens.
+      "Create", controlKind "button", "screenRegion":"dialog". Blue button, bottom-
+      right of the template chooser; Blank is selected by default. A blank doc opens.
   (4) click "Table" in the toolbar — targetType "icon", "targetLabel":"Table",
-      accessibleName "Table", "screenRegion":"ribbon", elementDescription "the Table
-      button in the Pages toolbar". A gallery of table styles drops down.
+      accessibleName "Table", controlKind "button", "screenRegion":"ribbon",
+      elementDescription "the Table button in the Pages TOOLBAR at the top (NOT a
+      table column in the document)". A gallery of table styles drops down.
   (5) click the FIRST table style — the TOP-LEFT thumbnail in the dropdown gallery:
       targetType "icon", "targetLabel":"", "screenRegion":"dialog", elementDescription
       "the first table style thumbnail, top-left of the Table gallery popover",
       instruction "Click the first table to insert it." (a thumbnail with no text —
-      resolves by vision.) Keep to these steps; no extra confirm.
+      resolves by vision.) Keep to these 5 steps; no extra confirm.
 - macOS PHOTO BOOTH — "take / click a photo": (1) if Photo Booth isn't open, a
   "click" step "open Photo Booth" (the app opens itself). (2) the SHUTTER is the
   big round RED CAMERA button centered at the BOTTOM of the window: targetType
