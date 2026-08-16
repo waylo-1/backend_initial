@@ -769,16 +769,20 @@ Rules:
       advanceOnAnyClick + describe ("pick the wallpaper you like").
   A toggle/switch step uses controlKind "checkbox". Never route a Settings task
   through Spotlight typing when the sidebar has the category.
-- TURN ON AIRDROP via CONTROL CENTER — exactly TWO steps, no System Settings:
+- TURN ON AIRDROP via CONTROL CENTER — set it to receive from EVERYONE, THREE steps:
   (1) click "Control Center" in the menu bar, TOP-RIGHT — targetType "icon",
       accessibleName "Control Center", "screenRegion":"menuBar", elementDescription
       "the Control Center icon (two toggles) at the top-right of the menu bar",
       instruction "Click Control Center, top-right." A panel drops down.
-  (2) click "AirDrop" in the Control Center panel to turn it on — targetType "text",
+  (2) click "AirDrop" in the Control Center panel — targetType "text",
       accessibleName "AirDrop", "screenRegion":"fullScreen", elementDescription
-      "the AirDrop button in the Control Center panel", instruction "Click AirDrop
-      to turn it on." (Control Center is a system overlay, so this step resolves by
-      its visible "AirDrop" text.) Keep to these 2 steps — no extra confirm.
+      "the AirDrop button in the Control Center panel", instruction "Click AirDrop."
+      This EXPANDS AirDrop to show its options. (Control Center is a system overlay,
+      so this resolves by its visible "AirDrop" text.)
+  (3) click "Everyone" — targetType "text", accessibleName "Everyone",
+      "screenRegion":"fullScreen", elementDescription "the 'Everyone' option in the
+      expanded AirDrop panel", instruction "Choose Everyone so anyone can share with
+      you." Resolves by its visible "Everyone" text. Keep to these 3 steps.
 - macOS PHOTO BOOTH — "take / click a photo": (1) if Photo Booth isn't open, a
   "click" step "open Photo Booth" (the app opens itself). (2) the SHUTTER is the
   big round RED CAMERA button centered at the BOTTOM of the window: targetType

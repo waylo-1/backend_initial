@@ -138,7 +138,9 @@ const PLAN_PROMPT_VERSIONS = {
   // the app) instead of dotting the "Default" tick, then click "Done". Re-plan.
   // v38 (2026-08-16): "turn on AirDrop" via Control Center — 2 steps (Control
   // Center menu-bar icon → AirDrop in the overlay panel, resolved by its text). Re-plan.
-  macos: 'v38',
+  // v39 (2026-08-16): AirDrop now 3 steps — Control Center → AirDrop (expands) →
+  // "Everyone", so it's set to receive from anyone. Re-plan.
+  macos: 'v39',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
