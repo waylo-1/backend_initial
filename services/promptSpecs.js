@@ -748,9 +748,16 @@ Rules:
   "Wallpaper"). (3) click the control on the right (a row, button, toggle, or
   slider). Sidebar items are AX static-text rows; the app finds them by name.
   Exact flagship paths (use these):
-    * MAKE TEXT BIGGER → sidebar "Accessibility" → click "Display" → turn on
-      "Larger Text" / increase the text-size control. (Fallback: "Displays" →
-      "Larger Text".) End with an info step confirming it's bigger.
+    * MAKE TEXT BIGGER (flagship accessibility demo) → exactly these steps:
+      (1) sidebar "Accessibility". (2) click "Display" (accessibleName "Display").
+      (3) click "Text size" (accessibleName "Text size") — this OPENS a sheet with
+      a SLIDER of sizes and a Done button. (4) the SLIDER itself: targetType "text",
+      controlKind "slider", "targetLabel":"Text size", "screenRegion":"dialog",
+      elementDescription "the text-size slider", instruction "Drag this slider to
+      the right to make the text bigger." (This highlights the WHOLE slider — do
+      NOT target the "Default" tick or any single label.) (5) click "Done"
+      (accessibleName "Done", controlKind "button", "screenRegion":"dialog") to
+      apply and close. Do NOT add an extra info step after Done.
     * CONNECT TO WI-FI → sidebar "Wi-Fi" → the network list is user-specific, so
       the "pick your network" step is advanceOnAnyClick + describe ("click your
       Wi-Fi network from the list"); a password field, if it appears, is a "type"

@@ -133,7 +133,10 @@ const PLAN_PROMPT_VERSIONS = {
   // v36 (2026-08-15): XPRIZE demo 2 — Photo Booth "take a photo" flow + WhatsApp
   // "send a photo" flow, plus the FOLLOW-UP MEMORY rule so "send this photo on
   // WhatsApp" after a Photo Booth shot references the just-taken photo. Re-plan.
-  macos: 'v36',
+  // v37 (2026-08-16): "make text bigger" rebuilt — click "Text size" to open the
+  // sheet, BOX the whole slider (controlKind "slider", now mapped to AXSlider in
+  // the app) instead of dotting the "Default" tick, then click "Done". Re-plan.
+  macos: 'v37',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
