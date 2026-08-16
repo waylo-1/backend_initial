@@ -154,9 +154,15 @@ app.post('/plan', planLimiter, async (req, res) => {
         ? req.body.userContext.slice(0, 400).trim() : '';
 
       // Semantic cache: a paraphrase of a prior task returns instantly, no LLM
-      // call. Skip it when the user gave explicit starting context — the same
-      // task from a different starting state needs a different plan.
-      if (!sessionContext && !userContext) {
+      // call. Skip it ONLY for a genuine FOLLOW-UP — one that refers back to
+      // prior context ("send THIS photo", "now make it bold", "do it again") and
+      // therefore needs live generation WITH the session context. A plain task
+      // must still use the cache even when the ambient recent-task trail is
+      // present, otherwise EVERY task is forced into a (slower, occasionally
+      // rate-limited) live Gemini call — which is exactly why plans were failing.
+      const looksLikeFollowUp = !!sessionContext &&
+        /\b(this|that|these|those|it|its|again|also|now|same|previous|earlier)\b/i.test(task);
+      if (!looksLikeFollowUp && !userContext) {
         const cachedPlan = await semanticPlanCache.getPlanFromCache('macos', task);
         if (cachedPlan) {
           console.log(`Plan semantic-cache HIT (macOS) for: ${task}`);
