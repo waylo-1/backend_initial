@@ -771,9 +771,11 @@ Rules:
   through Spotlight typing when the sidebar has the category.
 - TURN ON AIRDROP via CONTROL CENTER — set it to receive from EVERYONE, THREE steps:
   (1) click "Control Center" in the menu bar, TOP-RIGHT — targetType "icon",
-      accessibleName "Control Center", "screenRegion":"menuBar", elementDescription
-      "the Control Center icon (two toggles) at the top-right of the menu bar",
-      instruction "Click Control Center, top-right." A panel drops down.
+      "targetLabel":"Control Center", accessibleName "Control Center",
+      "screenRegion":"menuBar", elementDescription "the Control Center menu-bar icon,
+      top-right", instruction "Click Control Center, top-right." (It is a menu-bar
+      item named "Control Center"/"Control Centre" — the app matches either spelling.)
+      A panel drops down.
   (2) click "AirDrop" in the Control Center panel — targetType "text",
       accessibleName "AirDrop", "screenRegion":"fullScreen", elementDescription
       "the AirDrop button in the Control Center panel", instruction "Click AirDrop."
