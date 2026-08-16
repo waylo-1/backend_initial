@@ -680,7 +680,7 @@ function renderStatsHTML(s) {
  */
 app.post('/plan/learn', async (req, res) => {
   try {
-    const { task, platform, steps } = req.body || {};
+    const { task, platform, steps, app } = req.body || {};
     if (!task || typeof task !== 'string' || !Array.isArray(steps) || steps.length === 0) {
       return res.status(400).json({ accepted: false, error: 'task and non-empty steps are required' });
     }
@@ -702,7 +702,11 @@ app.post('/plan/learn', async (req, res) => {
       key: typeof s.key === 'string' ? s.key : null,
       findDescription: s.findDescription || s.elementDescription || s.instruction || '',
     }));
-    const plan = { task, app: 'Unknown', steps: normalized };
+    // Preserve the target app so a learned plan can still auto-open it on re-run.
+    // (Hardcoding 'Unknown' here previously broke "open the app first" — the engine
+    // couldn't resolve the app and jumped straight to step 1 on a blank screen.)
+    const planApp = (typeof app === 'string' && app.trim()) ? app.trim() : 'Unknown';
+    const plan = { task, app: planApp, steps: normalized };
     // Fire-and-forget so the client isn't blocked.
     semanticPlanCache.learnPlan('macos', task, plan).then(() => {}, () => {});
     return res.status(202).json({ accepted: true });
