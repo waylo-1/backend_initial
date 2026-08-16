@@ -143,7 +143,9 @@ const PLAN_PROMPT_VERSIONS = {
   // v40 (2026-08-16): AirDrop step 1 gets targetLabel "Control Center" (short) so
   // AX exact-matches the menu-bar item; paired with US/UK spelling equivalence in
   // the app so "Control Center" resolves the "Control Centre" item precisely. Re-plan.
-  macos: 'v40',
+  // v41 (2026-08-16): Apple Pages flow — new document (New Document → Create) then
+  // insert a table (Table toolbar button → first table thumbnail). Re-plan.
+  macos: 'v41',
   // v9 (2026-07-06): granular/landmark-based/elderly-friendly rewrite of
   // ENRICHED_SYSTEM_PROMPT — old shallow plans (e.g. "open app" with no
   // completion steps) must not keep being served from cache.
