@@ -1,268 +1,124 @@
-# Waylo Backend
+<div align="center">
 
-Backend server for Waylo - an AI-powered Android app that helps elderly users navigate smartphone apps through guided instructions with visual indicators and voice guidance.
+# 🔴 Waylo — Backend
 
-## Features
+**The shared brain for the Waylo apps: Gemini planning + vision, YOLO detection, a semantic plan cache, accounts, and remote config.**
 
-- **Multilingual Support**: Detects and responds in 10 Indian languages + English
-- **AI-Powered Instructions**: Uses AWS Bedrock (Amazon Nova) or Google Gemini — swappable via `AI_PROVIDER` — to generate step-by-step guides
-- **App Package Resolution**: Each step is enriched with the target app's Android `appPackage`
-  so the on-device element finder prefers the real app over look-alikes
-- **Vision Fallback** (`POST /vision`): vision locates missing elements on a screenshot
-  (`locate`) or generates recovery steps when the screen looks wrong (`troubleshoot`)
-- **Persistent Guides**: Saves guides to Supabase with 30-day expiry
-- **Rate Limiting**: Protects the /plan endpoint from abuse
-- **CORS Enabled**: Ready for cross-origin requests
+[![Node](https://img.shields.io/badge/Node.js-Express-339933?logo=node.js&logoColor=white)](https://nodejs.org)
+[![Gemini](https://img.shields.io/badge/AI-Google%20Gemini-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev)
+[![pgvector](https://img.shields.io/badge/Postgres-pgvector-336791?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![Website](https://img.shields.io/badge/website-waylo--web.vercel.app-6C4CF1)](https://waylo-web-virid.vercel.app)
 
-Set `WAYLO_DEBUG=1` to log full vision prompts and raw model responses.
+</div>
 
-## Supported Languages
+Node.js / Express service that both the [**macOS and Android apps**](https://github.com/waylo-1/frontend_systemsettings_overlay) talk to. It turns a plain-language task into a step-by-step plan with **Google Gemini**, is the **main vision fallback** for grounding on-screen elements, and gets faster and cheaper over time via a semantic plan cache and fleet learning.
 
-- Hindi (hi)
-- English (en)
-- Tamil (ta)
-- Telugu (te)
-- Bengali (bn)
-- Marathi (mr)
-- Gujarati (gu)
-- Kannada (kn)
-- Malayalam (ml)
-- Punjabi (pa)
+---
 
-## Setup
+## 🧠 What it does
 
-### 1. Install Dependencies
+1. **Plans the task** — `POST /plan` sends the task + a live screen snapshot to **Gemini**, which returns a step-by-step plan (one click / type / key per step). Plans are cached **semantically** (pgvector embeddings) so a paraphrase of a prior task returns instantly, shared across all users.
+2. **Grounds vision** — when the apps' cheap on-device layers can't locate a target, they call the backend's **Gemini vision** (and a **YOLO** microservice) to find the exact element, returning a bounding box + a plain-language hint. Set-of-Mark disambiguation stamps numbered badges and lets Gemini pick among look-alikes.
+3. **Learns** — verified clicks and labelled icons are stored and reused; `POST /plan/learn` / `POST /plan/forget` update the cached plan for a task.
+4. **Runs the business** — email accounts, a freemium limit (free vs paid tasks), and an analytics dashboard.
+5. **Tunes the apps remotely** — `GET /config` serves `app-config.json` so behaviour changes with no app re-download.
 
+---
+
+## 🔌 Key endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /plan` | Generate (or semantic-cache) a step plan for a task |
+| `POST /vision`, `/vision-fallback` | Ground an element via Gemini/YOLO vision |
+| `POST /pick-element` | Set-of-Mark: Gemini picks the right numbered candidate |
+| `POST /plan/learn`, `/plan/forget` | Remember / drop a corrected plan |
+| `GET /config` | Remote config (Judge Mode, voice engine, messages, update prompt) |
+| `POST /tts` | Google Cloud Text-to-Speech (natural voice) |
+| `GET /me`, `POST /register`, `POST /upgrade` | Accounts + freemium (macOS/web) |
+| `POST /auth/google`, `GET /entitlement`, `POST /entitlement/consume`, `POST /feedback` | Accounts + entitlement (Android) |
+| `GET /admin/stats` | Analytics dashboard (ADMIN_KEY-gated) |
+
+---
+
+## 🏗 Architecture
+
+```
+apps ──► /plan ──► semantic plan cache (pgvector)  ── hit? return instantly
+                    │ miss
+                    ▼
+                 Gemini  (services/llm.js → providers/gemini.js)  → step plan
+apps ──► /vision ─► Gemini vision  ── still hard? ─► YOLO microservice (Python)
+                    ▼
+             bounding box + hint  → the app draws the red dot
+```
+
+- `index.js` — routes + the freemium paywall + remote config
+- `services/llm.js`, `services/providers/gemini.js` — Gemini planning + vision
+- `services/promptSpecs.js` — the planner's app-specific flow knowledge
+- `semanticPlanCache.js` — pgvector cache, versioned per platform
+- `users.js`, `routes/auth.js` — accounts, entitlement, freemium
+- `services/googleTTS.js` — Google Cloud TTS
+- `routes/yolo-detect.js` + the Python YOLO service — object detection
+
+---
+
+## 🚀 Running & deploying
+
+**Local:**
 ```bash
 npm install
+cp .env.example .env    # fill in the keys below
+node index.js           # starts on :3000
 ```
 
-### 2. Configure Environment Variables
-
-Copy `.env.example` to `.env` and fill in your credentials:
-
+**Production (AWS EC2 + pm2):** two processes — `waylo-backend` and `yolo-service`.
 ```bash
-cp .env.example .env
+cd ~/backend_initial
+git pull
+pm2 restart waylo-backend
 ```
 
-Required variables:
-- `AWS_ACCESS_KEY_ID`: Your AWS access key
-- `AWS_SECRET_ACCESS_KEY`: Your AWS secret key
-- `AWS_REGION`: Bedrock region (e.g. `us-east-1`)
-- `AI_PROVIDER`: `bedrock` (default) or `gemini` — see `.env.example` for the model-id vars each provider needs
-- `SUPABASE_URL`: Your Supabase project URL
-- `SUPABASE_ANON_KEY`: Your Supabase anonymous key
-- `PORT`: Server port (default: 3000)
+### Environment variables
 
-### 3. Setup Supabase Database
+| Var | Purpose |
+|-----|---------|
+| `GEMINI_API_KEY` | Google Gemini (planning + vision) — **required** |
+| `AI_PROVIDER` | `gemini` |
+| `DATABASE_URL` | Postgres + pgvector (plan cache, accounts) |
+| `GOOGLE_TTS_API_KEY` | Google Cloud TTS (optional; falls back to on-device) |
+| `FREE_TASK_LIMIT`, `PAID_TASK_LIMIT` | Freemium limits (default 5 / 25) |
+| `DEVELOPER_EMAILS` | Emails with unlimited tasks |
+| `JUDGE_BUILD_KEY` | Key the reviewer app sends to waive the paywall |
+| `ADMIN_KEY` | Guards `/admin/stats` |
+| `UPGRADE_URL` | Link shown when a user hits the free limit |
 
-Run this SQL in your Supabase SQL editor:
+*(Never commit real secrets — use environment variables / `.env`.)*
 
-```sql
-CREATE TABLE guides (
-  id TEXT PRIMARY KEY,
-  task_name TEXT NOT NULL,
-  language TEXT NOT NULL DEFAULT 'hi',
-  steps JSONB NOT NULL,
-  created_at TIMESTAMP DEFAULT NOW(),
-  expires_at TIMESTAMP NOT NULL
-);
+---
 
--- Create index for faster lookups
-CREATE INDEX idx_guides_expires_at ON guides(expires_at);
-```
+## 🎛 Remote config (`app-config.json`)
 
-### 4. Start the Server
+Edit this file, `git pull` on the server, and it takes effect on the next `/config` fetch — **no app re-download**:
 
-Development mode (with auto-reload):
-```bash
-npm run dev
-```
-
-Production mode:
-```bash
-npm start
-```
-
-## API Endpoints
-
-### GET /health
-
-Health check endpoint.
-
-**Response:**
 ```json
 {
-  "status": "ok",
-  "timestamp": "2024-01-15T10:30:00.000Z"
+  "maxAccuracy": true,
+  "novaMinConfidence": 0.55,
+  "voiceEngine": "system",
+  "message": "",
+  "messageLevel": "info",
+  "latestVersion": "1.1",
+  "updateURL": ""
 }
 ```
 
-### POST /plan
+To push a **new app build**: upload the `.dmg`, then set `latestVersion` + `updateURL` — running apps show a "Download update" prompt.
 
-Generate step-by-step instructions for a task.
+---
 
-**Rate Limit:** 20 requests per minute per IP
+<div align="center">
 
-**Request:**
-```json
-{
-  "task": "व्हाट्सएप पर अपनी प्रोफाइल फोटो कैसे बदलें"
-}
-```
+**Part of [Waylo](https://github.com/waylo-1)** · [Website](https://waylo-web-virid.vercel.app) · [Apps](https://github.com/waylo-1/frontend_systemsettings_overlay)
 
-**Response:**
-```json
-{
-  "success": true,
-  "language": "hi",
-  "steps": [
-    {
-      "stepNumber": 1,
-      "instruction": "व्हाट्सएप खोलें",
-      "findDescription": "WhatsApp icon",
-      "appName": "WhatsApp",
-      "expectedScreenTitle": "WhatsApp",
-      "appPackage": "com.whatsapp"
-    }
-  ],
-  "totalSteps": 5
-}
-```
-
-### POST /vision
-
-Layer 3 fallback. Sends a Base64 JPEG screenshot to the configured AI provider's vision model.
-
-**Request:**
-```json
-{
-  "mode": "locate | troubleshoot",
-  "screenshotBase64": "<base64 jpeg>",
-  "task": "open youtube history",
-  "currentStepIndex": 2,
-  "totalSteps": 4,
-  "findDescription": "History tab in YouTube library",
-  "screenWidth": 1080,
-  "screenHeight": 2400,
-  "language": "en"
-}
-```
-
-**Response (`locate`):** `{ "found", "x", "y", "confidence", "whatYouSee", "updatedFindDescription" }`
-
-**Response (`troubleshoot`):** `{ "recoverable", "rootCause", "explanation", "newSteps": [...] }`
-
-A 429/throttled response from the model is retried once after 5s.
-
-### POST /guide
-
-Save a guide and get a shareable link.
-
-**Request:**
-```json
-{
-  "steps": [...],
-  "taskName": "Change WhatsApp profile photo",
-  "language": "hi"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "id": "abc12345",
-  "link": "https://waylo.app/g/abc12345"
-}
-```
-
-### GET /guide/:id
-
-Retrieve a saved guide by ID.
-
-**Response:**
-```json
-{
-  "success": true,
-  "taskName": "Change WhatsApp profile photo",
-  "language": "hi",
-  "steps": [...],
-  "totalSteps": 5
-}
-```
-
-**Error Responses:**
-- `404` - Guide not found
-- `410` - Guide has expired (>30 days old)
-
-## Project Structure
-
-```
-waylo-backend/
-├── index.js          # Main Express server
-├── services/
-│   ├── llm.js             # Single AI entry point — every route calls through here.
-│   │                       # Selects a provider via AI_PROVIDER=bedrock|gemini (default bedrock).
-│   ├── promptSpecs.js      # Shared prompts + output-shape validation (provider-agnostic)
-│   └── providers/
-│       ├── bedrock.js      # AWS Bedrock (Amazon Nova) raw model calls
-│       └── gemini.js       # Google Gemini raw model calls
-├── routes/
-│   ├── vision.js          # /vision — locate + troubleshoot (Android)
-│   ├── vision-fallback.js # /vision-fallback — desktop (macOS) screenshot analysis
-│   └── failure.js         # /failure — detection-failure logging for YOLO training data
-├── db.js              # AWS RDS/Aurora Postgres pool
-├── langdetect.js     # Language detection utility
-├── package.json      # Dependencies and scripts
-├── .env.example      # Environment variables template
-└── README.md         # This file
-```
-
-## Android Element-Finding Pipeline (frontend_systemsettings_overlay)
-
-The app finds each step's target element through layered search, fastest first:
-
-| Layer | What | Where | Budget |
-|---|---|---|---|
-| 0 | Accessibility tree scoring (threshold 70, `appPackage` bonus +60, cached tree) | `ElementFinder.kt` | 300ms (+1 retry after 500ms) |
-| 1 | ML Kit text recognition, Latin + Devanagari, on a downscaled screenshot | `MLKitFinder.kt` | 800ms |
-| 2 | Icon recognition: colour signature → ML Kit labeling → TFLite classifier | `icon/IconFinder.kt` | 600ms |
-| 3a | Gemini Vision `locate` via backend | `GeminiVisionClient.kt` | 15s |
-| 3b | Gemini Vision `troubleshoot` → recovery steps spliced into the plan | `GeminiVisionClient.kt` | 20s |
-
-Layer 2 Part C needs `app/src/main/assets/icon_classifier.tflite` (bundled; any
-224×224 float32 ImageNet classifier works) — it degrades gracefully if absent.
-
-## Deployment
-
-This backend is designed to be deployed on Railway, Render, or any Node.js hosting platform.
-
-### Environment Variables Required:
-- `AI_PROVIDER` (`bedrock` or `gemini`)
-- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (if `AI_PROVIDER=bedrock`)
-- `GEMINI_API_KEY` (if `AI_PROVIDER=gemini`)
-- `DATABASE_URL`
-- `PORT` (auto-set by most platforms)
-
-## Logging
-
-The server logs important events for monitoring:
-- Plan requests with detected language
-- Bedrock responses with step count
-- Guide saves with generated IDs
-
-## Error Handling
-
-All endpoints return consistent error responses:
-```json
-{
-  "success": false,
-  "error": "Error description",
-  "details": "Detailed error message"
-}
-```
-
-## License
-
-Proprietary - Waylo
+</div>
