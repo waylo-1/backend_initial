@@ -64,6 +64,24 @@ app.use(cors(allowedOrigins.length
 // default 100kb body limit.
 app.use(express.json({ limit: '12mb' }));
 
+// Access log — one line per request (method, path, status, duration, and the
+// task/email/app for AI calls). Makes `pm2 logs waylo-backend` a live, readable
+// record of the agent executing in production.
+app.use((req, res, next) => {
+  const t0 = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - t0;
+    const b = req.body || {};
+    const bits = [];
+    if (b.task) bits.push(`task="${String(b.task).slice(0, 70)}"`);
+    if (b.userEmail || b.email) bits.push(`user=${b.userEmail || b.email}`);
+    if (b.platform) bits.push(b.platform);
+    const extra = bits.length ? '  ' + bits.join(' ') : '';
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} → ${res.statusCode} ${ms}ms${extra}`);
+  });
+  next();
+});
+
 // Global rate limiter — protects every endpoint from abuse. /plan keeps its
 // own tighter limiter below.
 const globalLimiter = rateLimit({
@@ -626,6 +644,60 @@ app.get('/admin/stats', async (req, res) => {
 // router only adds its unique routes (/auth/google, /entitlement,
 // /entitlement/consume, /feedback). It's committed here so redeploys keep it.
 app.use('/', authRouter);
+
+// Full data + execution log — for the submission evidence. Uses its OWN key
+// (ADMIN_LOGS_KEY, default below) so it's reachable without the main ADMIN_KEY.
+const LOGS_KEY = process.env.ADMIN_LOGS_KEY || 'waylo-evidence-2026';
+app.get('/admin/logs.json', async (req, res) => {
+  if (req.query.key !== LOGS_KEY) return res.status(401).json({ error: 'unauthorized' });
+  try { return res.json(await users.getFullLog(Number(req.query.limit) || 1000)); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+});
+app.get('/admin/logs', async (req, res) => {
+  if (req.query.key !== LOGS_KEY) return res.status(401).send('unauthorized — add ?key=');
+  try {
+    const d = await users.getFullLog(Number(req.query.limit) || 1000);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    return res.send(renderLogsHTML(d));
+  } catch (e) { return res.status(500).send('error: ' + e.message); }
+});
+
+function renderLogsHTML(d) {
+  const esc = (x) => String(x ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const evRows = d.events.map((e) =>
+    `<tr><td class="mono">${esc(e.at)}</td><td>${esc(e.email || '—')}</td><td><span class="tag">${esc(e.event)}</span></td><td>${esc(e.platform || '')}</td><td>${esc(e.task || '')}</td></tr>`).join('') || '<tr><td colspan="5">No events yet</td></tr>';
+  const userRows = d.users.map((u) =>
+    `<tr><td>${esc(u.email)}</td><td>${esc(u.name || '')}</td><td><span class="tag ${u.plan === 'paid' ? 'paid' : ''}">${esc(u.plan)}</span></td><td>${esc(u.source || '')}</td><td class="mono">${esc(u.joined)}</td><td class="mono">${esc(u.last_seen || '')}</td></tr>`).join('') || '<tr><td colspan="6">No users yet</td></tr>';
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Waylo · execution log &amp; data</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"><style>
+  body{font:14px/1.5 -apple-system,system-ui,sans-serif;margin:0;padding:26px;background:#0b0d12;color:#e8ecf3}
+  h1{font-size:20px;margin:0 0 4px} h2{font-size:15px;color:#b9c2d6;margin:26px 0 10px}
+  .sub{color:#8a93a6;margin:0 0 18px;font-size:13px}
+  .cards{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px}
+  .card{background:#151924;border:1px solid #232838;border-radius:12px;padding:14px 18px}
+  .card .v{font-size:26px;font-weight:700} .card .l{color:#8a93a6;font-size:12px}
+  table{width:100%;border-collapse:collapse;background:#121620;border:1px solid #232838;border-radius:10px;overflow:hidden}
+  th{text-align:left;padding:8px 10px;background:#1a1f2b;color:#9aa6bd;font-size:12px;position:sticky;top:0}
+  td{padding:7px 10px;border-bottom:1px solid #202634;font-size:13px;vertical-align:top}
+  tr:hover td{background:#161b26}
+  .mono{font-family:ui-monospace,Menlo,monospace;color:#7f8aa3;white-space:nowrap}
+  .tag{background:#233; color:#8fd0ff;border-radius:5px;padding:1px 7px;font-size:11px}
+  .tag.paid{background:#0f3d23;color:#5fe0a0}
+  .wrap{max-height:60vh;overflow:auto;border-radius:10px}
+</style></head><body>
+  <h1>Waylo — execution log &amp; data</h1>
+  <p class="sub">Live from production Postgres · every row is a real task the AI executed or a real signup.</p>
+  <div class="cards">
+    <div class="card"><div class="v">${d.totals.tasks}</div><div class="l">Tasks executed</div></div>
+    <div class="card"><div class="v">${d.totals.events}</div><div class="l">Total events logged</div></div>
+    <div class="card"><div class="v">${d.totals.users}</div><div class="l">Registered users</div></div>
+  </div>
+  <h2>Execution log — usage_events (${d.events.length} shown)</h2>
+  <div class="wrap"><table><thead><tr><th>Time (UTC)</th><th>User</th><th>Event</th><th>Platform</th><th>Task</th></tr></thead><tbody>${evRows}</tbody></table></div>
+  <h2>Users (${d.users.length})</h2>
+  <div class="wrap"><table><thead><tr><th>Email</th><th>Name</th><th>Plan</th><th>Source</th><th>Joined</th><th>Last seen</th></tr></thead><tbody>${userRows}</tbody></table></div>
+</body></html>`;
+}
 
 function renderStatsHTML(s) {
   const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

@@ -164,7 +164,25 @@ async function getStats() {
   };
 }
 
+/** The full data tables (for the evidence/logs page). */
+async function getFullLog(limit = 1000) {
+  await ensureTables();
+  const [events, allUsers] = await Promise.all([
+    query(`SELECT id, to_char(created_at,'YYYY-MM-DD HH24:MI:SS') AS at, email, event, platform, task
+           FROM usage_events ORDER BY created_at DESC LIMIT $1`, [limit]),
+    query(`SELECT email, name, plan, source,
+             to_char(created_at,'YYYY-MM-DD HH24:MI') AS joined,
+             to_char(last_seen,'YYYY-MM-DD HH24:MI') AS last_seen
+           FROM users ORDER BY created_at DESC`),
+  ]);
+  const totals = await query(`SELECT
+      (SELECT COUNT(*)::int FROM usage_events) AS events,
+      (SELECT COUNT(*)::int FROM usage_events WHERE event='task') AS tasks,
+      (SELECT COUNT(*)::int FROM users) AS users`);
+  return { totals: totals.rows[0], events: events.rows, users: allUsers.rows };
+}
+
 module.exports = {
   ensureTables, registerUser, trackUsage, taskCount, getUser, setPlan, getStats,
-  usageStatus, limitForPlan, isDeveloperEmail, FREE_LIMIT, PAID_LIMIT,
+  usageStatus, limitForPlan, isDeveloperEmail, getFullLog, FREE_LIMIT, PAID_LIMIT,
 };
