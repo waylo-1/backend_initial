@@ -6,5 +6,5 @@
   "messageLevel": "info",
   "latestVersion": "1.0",
   "updateURL": "",
-  "voiceEngine": "google"
+  "voiceEngine": "system"
 }
